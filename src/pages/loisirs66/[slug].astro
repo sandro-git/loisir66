@@ -1,0 +1,141 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sanityClient, urlForImage } from '../../lib/sanity.js';
+
+const { slug } = Astro.params;
+
+const query = `*[_type == "adherent" && slug.current == $slug][0]{
+  nom, slug, soustitre, type, publics, saison,
+  description, ville, adresse, horaires, tarifs, siteWeb, image
+}`;
+
+const a = sanityClient
+  ? await sanityClient.fetch(query, { slug }).catch(() => null)
+  : null;
+
+if (!a) return Astro.redirect('/');
+
+// Initiales pour l'avatar (2 premières lettres des mots)
+const initiales = (a.nom as string)
+  .split(' ')
+  .slice(0, 2)
+  .map((w: string) => w[0])
+  .join('')
+  .toUpperCase();
+
+const imageUrl = a.image ? urlForImage(a.image)?.width(120).height(120).fit('crop').url() : null;
+---
+
+<Layout title={`${a.nom} — Loisirs 66`}>
+  <main class="max-w-3xl mx-auto px-4 py-8 space-y-4">
+
+    <!-- Header -->
+    <div class="bg-[#1c1c1c] rounded-2xl p-6">
+      <div class="flex items-start gap-5">
+
+        <!-- Avatar -->
+        <div class="flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-blue-900 flex items-center justify-center">
+          {imageUrl
+            ? <img src={imageUrl} alt={a.nom} class="w-full h-full object-cover" />
+            : <span class="text-white text-2xl font-bold">{initiales}</span>
+          }
+        </div>
+
+        <!-- Infos principales -->
+        <div class="flex-1 min-w-0">
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <h1 class="text-2xl font-bold text-white">{a.nom}</h1>
+            {a.type && (
+              <span class={`text-xs font-medium px-3 py-1 rounded-full ${
+                a.type === 'Outdoor'
+                  ? 'bg-green-950 text-green-400 border border-green-800'
+                  : 'bg-blue-950 text-blue-400 border border-blue-800'
+              }`}>{a.type}</span>
+            )}
+            <span class="text-xs font-medium px-3 py-1 rounded-full border border-gray-600 text-gray-300">
+              Adhérent APLPO
+            </span>
+          </div>
+          {(a.soustitre || a.ville) && (
+            <p class="text-gray-400">
+              {a.soustitre}{a.soustitre && a.ville ? ' — ' : ''}{a.ville}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <!-- Corps -->
+    <div class="bg-[#1c1c1c] rounded-2xl p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+        <!-- Colonne gauche -->
+        <div class="space-y-6">
+          {a.description && (
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-widest mb-3">Description</p>
+              <p class="text-gray-300 leading-relaxed">{a.description}</p>
+            </div>
+          )}
+
+          {a.publics?.length > 0 && (
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-widest mb-3">Public</p>
+              <div class="flex flex-wrap gap-2">
+                {(a.publics as string[]).map((p) => (
+                  <span class="text-sm px-3 py-1 rounded-full border border-gray-600 text-gray-300">{p}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <!-- Colonne droite -->
+        <div class="space-y-6">
+          {(a.adresse || a.horaires || a.tarifs) && (
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-widest mb-3">Infos pratiques</p>
+              <dl class="space-y-3">
+                {a.adresse && (
+                  <div class="grid grid-cols-2 gap-2">
+                    <dt class="text-gray-500 text-sm">Adresse</dt>
+                    <dd class="text-gray-200 text-sm">{a.adresse}</dd>
+                  </div>
+                )}
+                {a.horaires && (
+                  <div class="grid grid-cols-2 gap-2">
+                    <dt class="text-gray-500 text-sm">Horaires</dt>
+                    <dd class="text-gray-200 text-sm">{a.horaires}</dd>
+                  </div>
+                )}
+                {a.tarifs && (
+                  <div class="grid grid-cols-2 gap-2">
+                    <dt class="text-gray-500 text-sm">Tarifs</dt>
+                    <dd class="text-gray-200 text-sm">{a.tarifs}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
+
+          {a.siteWeb && (
+            <a
+              href={a.siteWeb}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="block w-full text-center border border-blue-500 text-blue-400 rounded-xl py-3 text-sm font-medium hover:bg-blue-950 transition-colors"
+            >
+              Voir le site web
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <!-- Retour -->
+    <a href="/" class="inline-block text-gray-500 text-sm hover:text-gray-300 transition-colors">
+      ← Retour aux activités
+    </a>
+
+  </main>
+</Layout>

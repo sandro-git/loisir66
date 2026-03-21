@@ -1,0 +1,24 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SearchFilters from '../components/SearchFilters.astro';
+import AdherentCard from '../components/AdherentCard.astro';
+import { sanityClient } from '../lib/sanity.js';
+
+const adherents: any[] = sanityClient
+  ? await sanityClient.fetch(
+      `*[_type == "adherent"] | order(nom asc) { nom, "slug": slug.current, type, public, saison, description, ville, image }`
+    ).catch(() => [])
+  : [];
+---
+
+<Layout title="Activités — Loisirs 66">
+  <main>
+    <h1>Activités</h1>
+    <SearchFilters />
+    <div class="grid">
+      {adherents?.map((a) => (
+        <AdherentCard nom={a.nom} type={a.type} public={a.public} description={a.description} ville={a.ville} slug={a.slug} image={a.image} />
+      ))}
+    </div>
+  </main>
+</Layout>

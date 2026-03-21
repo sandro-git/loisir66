@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Astro Dev",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "dev"],
+      "port": 4321
+    },
+    {
+      "name": "Astro Preview",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "preview"],
+      "port": 4321
+    }
+  ]
+}

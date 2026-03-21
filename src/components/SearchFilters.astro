@@ -1,0 +1,53 @@
+---
+interface Props {
+  types?: string[];
+  publics?: string[];
+  saisons?: string[];
+}
+
+const { types = [], publics = [], saisons = [] } = Astro.props;
+---
+
+<section class="bg-[#1c1c1c] rounded-2xl p-6 mb-6">
+  <p class="text-xs text-gray-400 uppercase tracking-widest mb-4">Trouver une activité</p>
+
+  <input
+    id="search-input"
+    type="search"
+    placeholder="Rechercher (parc, escalade, VR...)"
+    autocomplete="off"
+    class="w-full bg-[#111111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white placeholder-gray-500 outline-none focus:border-gray-500 mb-3"
+  />
+
+  <div class="flex flex-col sm:flex-row gap-3">
+    <div class="relative flex-1">
+      <select id="filter-type" class="w-full appearance-none bg-[#111111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white outline-none focus:border-gray-500 cursor-pointer pr-10">
+        <option value="">Tout type</option>
+        {types.map((t) => <option value={t}>{t}</option>)}
+      </select>
+      <svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+
+    <div class="relative flex-1">
+      <select id="filter-public" class="w-full appearance-none bg-[#111111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white outline-none focus:border-gray-500 cursor-pointer pr-10">
+        <option value="">Tout public</option>
+        {publics.map((p) => <option value={p}>{p}</option>)}
+      </select>
+      <svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+
+    <div class="relative flex-1">
+      <select id="filter-saison" class="w-full appearance-none bg-[#111111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white outline-none focus:border-gray-500 cursor-pointer pr-10">
+        <option value="">Toute saison</option>
+        {saisons.map((s) => <option value={s}>{s}</option>)}
+      </select>
+      <svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+  </div>
+</section>
