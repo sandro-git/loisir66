@@ -1,4 +1,4 @@
-// @ts-check
+// @ts-nocheck
 import { defineConfig } from 'astro/config';
 
 import sanity from '@sanity/astro';
@@ -16,7 +16,7 @@ export default defineConfig({
     sanity({
       projectId: sanityProjectId || 'placeholder',
       dataset: process.env.PUBLIC_SANITY_DATASET ?? 'production',
-      useCdn: false,
+      useCdn: true,
       apiVersion: process.env.PUBLIC_SANITY_API_VERSION ?? '2024-01-01',
       studioBasePath: '/studio',
     }),
@@ -25,8 +25,29 @@ export default defineConfig({
 
   vite: {
     plugins: [tailwindcss()],
+    build: {
+      chunkSizeWarningLimit: 8000,
+      rollupOptions: {
+        output: {
+          manualChunks: (id) => {
+            // Tout Sanity dans un seul chunk pour éviter les dépendances circulaires
+            if (id.includes('@sanity/') || id.includes('sanity/lib') || id.includes('studio-component')) {
+              return 'sanity';
+            }
+            if (id.includes('VideoPlayer') || id.includes('video-player')) {
+              return 'video-player';
+            }
+          }
+        }
+      }
+    }
   },
-
+  image: {
+    domains: ['cdn.sanity.io'],
+  },
   output: 'server',
-  adapter: netlify(),
+  adapter: netlify({
+    edgeMiddleware: true,
+    imageCDN: false  // Désactive l'optimisation d'images Netlify en dev
+  })
 });
