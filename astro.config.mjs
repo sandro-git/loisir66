@@ -4,6 +4,7 @@ import { defineConfig } from 'astro/config';
 import sanity from '@sanity/astro';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
+import netlify from '@astrojs/netlify';
 
 const sanityProjectId = process.env.PUBLIC_SANITY_PROJECT_ID;
 
@@ -27,4 +28,5 @@ export default defineConfig({
   },
 
   output: 'server',
+  adapter: netlify(),
 });
