@@ -18,7 +18,7 @@ const total   = activites.length;
   <main class="max-w-6xl mx-auto px-4 py-8">
 
     <!-- Bloc recherche -->
-    <section class="bg-[#1c1c1c] rounded-2xl p-6 mb-6">
+    <section class="bg-white border border-gray-100 shadow-sm rounded-2xl p-6 mb-6">
       <p class="text-xs text-gray-400 uppercase tracking-widest mb-4">Trouver une activité</p>
 
       <input
@@ -26,13 +26,12 @@ const total   = activites.length;
         type="search"
         placeholder="Rechercher (parc, escalade, VR...)"
         autocomplete="off"
-        class="w-full bg-[#111111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white placeholder-gray-500 outline-none focus:border-gray-500 mb-3"
+        class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-400 mb-3"
       />
 
       <div class="flex flex-col sm:flex-row gap-3">
-        <!-- Tout type -->
         <div class="relative flex-1">
-          <select id="filter-type" class="w-full appearance-none bg-[#111111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white outline-none focus:border-gray-500 cursor-pointer pr-10">
+          <select id="filter-type" class="w-full appearance-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 outline-none focus:border-orange-400 cursor-pointer pr-10">
             <option value="">Tout type</option>
             {types.map((t) => <option value={t}>{t}</option>)}
           </select>
@@ -41,9 +40,8 @@ const total   = activites.length;
           </svg>
         </div>
 
-        <!-- Tout public -->
         <div class="relative flex-1">
-          <select id="filter-public" class="w-full appearance-none bg-[#111111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white outline-none focus:border-gray-500 cursor-pointer pr-10">
+          <select id="filter-public" class="w-full appearance-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 outline-none focus:border-orange-400 cursor-pointer pr-10">
             <option value="">Tout public</option>
             {publics.map((p) => <option value={p}>{p}</option>)}
           </select>
@@ -52,9 +50,8 @@ const total   = activites.length;
           </svg>
         </div>
 
-        <!-- Toute saison -->
         <div class="relative flex-1">
-          <select id="filter-saison" class="w-full appearance-none bg-[#111111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white outline-none focus:border-gray-500 cursor-pointer pr-10">
+          <select id="filter-saison" class="w-full appearance-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 outline-none focus:border-orange-400 cursor-pointer pr-10">
             <option value="">Toute saison</option>
             {saisons.map((s) => <option value={s}>{s}</option>)}
           </select>
@@ -70,7 +67,7 @@ const total   = activites.length;
       {activites?.map((a) => (
         <a
           href={a.slug ? `/loisirs66/${a.slug}` : '#'}
-          class="activity-card bg-[#1c1c1c] rounded-2xl p-5 flex flex-col gap-3 hover:bg-[#222222] transition-colors no-underline"
+          class="activity-card bg-white border border-gray-100 shadow-sm rounded-2xl p-5 flex flex-col gap-3 hover:bg-gray-50 transition-colors no-underline"
           data-nom={(a.nom ?? '').toLowerCase()}
           data-description={(a.description ?? '').toLowerCase()}
           data-type={(a.type ?? '').toLowerCase()}
@@ -82,37 +79,37 @@ const total   = activites.length;
             {a.type && (
               <span class={`text-xs font-medium px-3 py-1 rounded-full ${
                 a.type === 'Outdoor'
-                  ? 'bg-green-950 text-green-400 border border-green-800'
-                  : 'bg-blue-950 text-blue-400 border border-blue-800'
+                  ? 'bg-green-100 text-green-700 border border-green-300'
+                  : 'bg-sky-100 text-sky-700 border border-sky-300'
               }`}>
                 {a.type}
               </span>
             )}
             {(a.publics ?? []).map((p: string) => (
-              <span class="text-xs font-medium px-3 py-1 rounded-full bg-[#2a2a2a] text-gray-300">
+              <span class="text-xs font-medium px-3 py-1 rounded-full bg-gray-100 text-gray-600">
                 {p}
               </span>
             ))}
           </div>
 
           <!-- Nom -->
-          <h2 class="text-xl font-bold text-white leading-snug">{a.nom}</h2>
+          <h2 class="text-xl font-bold text-gray-900 leading-snug">{a.nom}</h2>
 
           <!-- Description -->
           {a.description && (
-            <p class="text-gray-400 text-sm leading-relaxed line-clamp-2">{a.description}</p>
+            <p class="text-gray-600 text-sm leading-relaxed line-clamp-2">{a.description}</p>
           )}
 
           <!-- Ville -->
           {a.ville && (
-            <p class="text-gray-500 text-sm mt-auto">{a.ville}</p>
+            <p class="text-gray-400 text-sm mt-auto">{a.ville}</p>
           )}
         </a>
       ))}
     </div>
 
     <!-- Compteur -->
-    <p id="count" class="text-right text-gray-500 text-sm mt-4">
+    <p id="count" class="text-right text-gray-400 text-sm mt-4">
       {total} activité{total > 1 ? 's' : ''} trouvée{total > 1 ? 's' : ''}
     </p>
 
