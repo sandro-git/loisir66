@@ -72,6 +72,7 @@ const total   = activites.length;
           href={a.slug ? `/loisirs66/${a.slug}` : '#'}
           class="activity-card bg-[#1c1c1c] rounded-2xl p-5 flex flex-col gap-3 hover:bg-[#222222] transition-colors no-underline"
           data-nom={(a.nom ?? '').toLowerCase()}
+          data-description={(a.description ?? '').toLowerCase()}
           data-type={(a.type ?? '').toLowerCase()}
           data-public={(a.publics ?? []).join(',').toLowerCase()}
           data-saison={(a.saison ?? '').toLowerCase()}
@@ -136,7 +137,7 @@ const total   = activites.length;
 
     cards.forEach((card) => {
       const matches =
-        (!query  || (card.dataset.nom    ?? '').includes(query)) &&
+        (!query  || (card.dataset.nom ?? '').includes(query) || (card.dataset.description ?? '').includes(query)) &&
         (!type   || (card.dataset.type   ?? '') === type) &&
         (!pub    || (card.dataset.public ?? '') === pub) &&
         (!saison || (card.dataset.saison ?? '') === saison);
