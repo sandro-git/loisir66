@@ -26,7 +26,8 @@
     "react-dom": "^19.2.0",
     "sanity": "^4.1.1",
     "tailwindcss": "^4.1.11",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@astrojs/netlify": "6.5.3"
