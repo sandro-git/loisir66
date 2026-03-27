@@ -1,0 +1,106 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { createClient } from '@supabase/supabase-js';
+
+const ADMIN_EMAIL = 'sandro@vr-cafe.fr';
+
+// Protection admin
+const accessToken = Astro.cookies.get('sb-access-token')?.value;
+if (!accessToken) return Astro.redirect('/connexion');
+
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+  { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
+);
+
+const { data: { user }, error } = await supabase.auth.getUser();
+if (error || !user || user.email !== ADMIN_EMAIL) return Astro.redirect('/connexion');
+
+// Lecture des paramètres de retour
+const success  = Astro.url.searchParams.get('success');
+const mdp      = Astro.url.searchParams.get('mdp');
+const nom      = Astro.url.searchParams.get('nom');
+const email    = Astro.url.searchParams.get('email');
+const erreur   = Astro.url.searchParams.get('erreur');
+
+const erreurMsg: Record<string, string> = {
+  'champs-manquants': 'Nom et email sont obligatoires.',
+  'email-existant':   'Un compte existe déjà avec cet email.',
+  'sanity':           'Erreur lors de la création de la fiche Sanity.',
+  'table':            'Erreur lors de la liaison du compte.',
+};
+---
+
+<Layout title="Admin — Ajouter un membre">
+  <main class="max-w-lg mx-auto px-4 py-16">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+      <h1 class="text-2xl font-bold text-white">Ajouter un membre</h1>
+      <a href="/" class="text-sm text-gray-400 hover:text-white transition-colors">← Retour au site</a>
+    </div>
+
+    <!-- Succès -->
+    {success && mdp && (
+      <div class="bg-green-950 border border-green-800 rounded-2xl p-6 mb-6">
+        <p class="text-green-400 font-semibold mb-3">✓ Membre créé avec succès</p>
+        <div class="space-y-1 text-sm text-green-300">
+          <p><span class="text-green-500">Nom :</span> {nom}</p>
+          <p><span class="text-green-500">Email :</span> {email}</p>
+          <p class="mt-3">
+            <span class="text-green-500">Mot de passe temporaire :</span>
+            <span class="font-mono bg-green-900 px-3 py-1 rounded-lg ml-2 text-white text-base">{mdp}</span>
+          </p>
+        </div>
+        <p class="text-green-600 text-xs mt-4">Transmets ces identifiants au membre de façon sécurisée.</p>
+      </div>
+    )}
+
+    <!-- Erreur -->
+    {erreur && (
+      <div class="bg-red-950 border border-red-800 text-red-400 text-sm rounded-2xl px-5 py-4 mb-6">
+        {erreurMsg[erreur] ?? 'Une erreur est survenue.'}
+      </div>
+    )}
+
+    <!-- Formulaire -->
+    <div class="bg-[#1c1c1c] rounded-2xl p-8">
+      <form method="POST" action="/api/admin/add-membre" class="space-y-5">
+
+        <div>
+          <label class="block text-sm text-gray-400 mb-2" for="nom">Nom commercial</label>
+          <input
+            id="nom"
+            name="nom"
+            type="text"
+            required
+            placeholder="Ex : EVA Perpignan"
+            class="w-full bg-[#111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-gray-500"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm text-gray-400 mb-2" for="email">Email du membre</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            placeholder="contact@exemple.fr"
+            class="w-full bg-[#111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-gray-500"
+          />
+        </div>
+
+        <button
+          type="submit"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-colors mt-2"
+        >
+          Créer le membre
+        </button>
+
+      </form>
+    </div>
+
+  </main>
+</Layout>
