@@ -23,3 +23,6 @@ Thumbs.db
 
 # Local Netlify folder
 .netlify
+
+# Données sensibles — mots de passe membres
+scripts/membres-comptes.csv
