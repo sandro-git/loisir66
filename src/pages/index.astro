@@ -11,6 +11,7 @@ const activites: any[] = sanityClient
 const types   = [...new Set(activites.map((a) => a.type).filter(Boolean))] as string[];
 const publics = [...new Set(activites.flatMap((a) => a.publics ?? []).filter(Boolean))] as string[];
 const saisons = [...new Set(activites.map((a) => a.saison).filter(Boolean))] as string[];
+const villes  = [...new Set(activites.map((a) => a.ville).filter(Boolean))].sort() as string[];
 const total   = activites.length;
 ---
 
@@ -26,15 +27,33 @@ const total   = activites.length;
     <section class="bg-white border border-gray-100 shadow-sm rounded-2xl p-6 mb-6">
       <p class="text-xs text-gray-400 uppercase tracking-widest mb-4">Trouver une activité</p>
 
-      <input
-        id="search-input"
-        type="search"
-        placeholder="Rechercher (parc, escalade, VR...)"
-        autocomplete="off"
-        class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-400 mb-3"
-      />
+      <!-- Barre de recherche + bouton géolocalisation -->
+      <div class="flex gap-2 mb-3">
+        <input
+          id="search-input"
+          type="search"
+          placeholder="Rechercher (parc, escalade, VR...)"
+          autocomplete="off"
+          class="flex-1 bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-400"
+        />
+        <button
+          id="btn-geolocate"
+          title="Activités proches de moi"
+          class="flex-shrink-0 bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-400 hover:text-orange-500 hover:border-orange-400 transition-colors outline-none focus:border-orange-400"
+        >
+          <svg id="geo-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+            <circle cx="12" cy="12" r="8" stroke-dasharray="4 2"/>
+          </svg>
+          <svg id="geo-spinner" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2a10 10 0 0 1 10 10"/>
+          </svg>
+        </button>
+      </div>
 
-      <div class="flex flex-col sm:flex-row gap-3">
+      <!-- Filtres — cachés sur mobile -->
+      <div class="hidden sm:flex sm:flex-row gap-3">
         <div class="relative flex-1">
           <select id="filter-type" class="w-full appearance-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 outline-none focus:border-orange-400 cursor-pointer pr-10">
             <option value="">Tout type</option>
@@ -64,6 +83,17 @@ const total   = activites.length;
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
           </svg>
         </div>
+
+        <!-- Toute ville -->
+        <div class="relative flex-1">
+          <select id="filter-ville" class="w-full appearance-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 outline-none focus:border-orange-400 cursor-pointer pr-10">
+            <option value="">Toute ville</option>
+            {villes.map((v) => <option value={v}>{v}</option>)}
+          </select>
+          <svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
       </div>
     </section>
 
@@ -78,6 +108,7 @@ const total   = activites.length;
           data-type={(a.type ?? '').toLowerCase()}
           data-public={(a.publics ?? []).join(',').toLowerCase()}
           data-saison={(a.saison ?? '').toLowerCase()}
+          data-ville={(a.ville ?? '').toLowerCase()}
         >
           <!-- Tags -->
           <div class="flex gap-2 flex-wrap">
@@ -105,9 +136,12 @@ const total   = activites.length;
             <p class="text-gray-600 text-sm leading-relaxed line-clamp-2">{a.description}</p>
           )}
 
-          <!-- Ville -->
+          <!-- Ville + badge distance -->
           {a.ville && (
-            <p class="text-gray-400 text-sm mt-auto">{a.ville}</p>
+            <p class="text-gray-400 text-sm mt-auto flex items-center gap-2">
+              {a.ville}
+              <span class="distance-badge hidden text-xs text-orange-500 font-medium"></span>
+            </p>
           )}
         </a>
       ))}
@@ -126,14 +160,20 @@ const total   = activites.length;
   const filterType   = document.getElementById('filter-type') as HTMLSelectElement;
   const filterPublic = document.getElementById('filter-public') as HTMLSelectElement;
   const filterSaison = document.getElementById('filter-saison') as HTMLSelectElement;
+  const filterVille  = document.getElementById('filter-ville') as HTMLSelectElement;
   const cards        = document.querySelectorAll<HTMLElement>('.activity-card');
   const countEl      = document.getElementById('count');
+  const btnGeo       = document.getElementById('btn-geolocate') as HTMLButtonElement;
+  const geoIcon      = document.getElementById('geo-icon') as SVGElement;
+  const geoSpinner   = document.getElementById('geo-spinner') as SVGElement;
+  const grid         = document.getElementById('cards-grid') as HTMLElement;
 
   function applyFilters() {
     const query  = searchInput.value.toLowerCase();
     const type   = filterType.value.toLowerCase();
     const pub    = filterPublic.value.toLowerCase();
     const saison = filterSaison.value.toLowerCase();
+    const ville  = filterVille.value.toLowerCase();
 
     let visible = 0;
 
@@ -142,7 +182,8 @@ const total   = activites.length;
         (!query  || (card.dataset.nom ?? '').includes(query) || (card.dataset.description ?? '').includes(query)) &&
         (!type   || (card.dataset.type   ?? '') === type) &&
         (!pub    || (card.dataset.public ?? '') === pub) &&
-        (!saison || (card.dataset.saison ?? '') === saison);
+        (!saison || (card.dataset.saison ?? '') === saison) &&
+        (!ville  || (card.dataset.ville  ?? '') === ville);
 
       card.style.display = matches ? '' : 'none';
       if (matches) visible++;
@@ -157,4 +198,133 @@ const total   = activites.length;
   filterType?.addEventListener('change', applyFilters);
   filterPublic?.addEventListener('change', applyFilters);
   filterSaison?.addEventListener('change', applyFilters);
+  filterVille?.addEventListener('change', applyFilters);
+
+  // --- Géolocalisation ---
+
+  function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  const geocodeCache: Record<string, { lat: number; lng: number } | null> = {};
+
+  async function geocodeVille(ville: string): Promise<{ lat: number; lng: number } | null> {
+    if (ville in geocodeCache) return geocodeCache[ville];
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(ville + ', Pyrénées-Orientales, France')}&format=json&limit=1&addressdetails=0`,
+        { headers: { 'Accept-Language': 'fr', 'User-Agent': 'loisirs66-app/1.0' } }
+      );
+      const data = await res.json();
+      const result = data[0] ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } : null;
+      geocodeCache[ville] = result;
+      // Respecter la limite Nominatim : 1 req/s
+      await new Promise((r) => setTimeout(r, 1100));
+      return result;
+    } catch (e) {
+      console.error('Geocode error:', ville, e);
+      geocodeCache[ville] = null;
+      return null;
+    }
+  }
+
+  async function geocodeSequential(villes: string[]) {
+    for (const v of villes) {
+      await geocodeVille(v);
+    }
+  }
+
+  function setGeoLoading(loading: boolean) {
+    btnGeo.disabled = loading;
+    geoIcon.classList.toggle('hidden', loading);
+    geoSpinner.classList.toggle('hidden', !loading);
+  }
+
+  function resetGeo() {
+    // Enlever les badges distance
+    document.querySelectorAll<HTMLElement>('.distance-badge').forEach((el) => {
+      el.textContent = '';
+      el.classList.add('hidden');
+    });
+    // Remettre l'ordre d'origine (order par data-nom)
+    const sorted = [...cards].sort((a, b) =>
+      (a.dataset.nom ?? '').localeCompare(b.dataset.nom ?? '')
+    );
+    sorted.forEach((c) => grid.appendChild(c));
+    btnGeo.classList.remove('text-orange-500', 'border-orange-400');
+    btnGeo.classList.add('text-gray-400', 'border-gray-200');
+  }
+
+  let geoActive = false;
+
+  btnGeo?.addEventListener('click', async () => {
+    if (geoActive) {
+      geoActive = false;
+      resetGeo();
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      alert('La géolocalisation n\'est pas supportée par ce navigateur.');
+      return;
+    }
+
+    setGeoLoading(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const userLat = pos.coords.latitude;
+        const userLng = pos.coords.longitude;
+
+        // Geocoder toutes les villes uniques présentes dans les cartes (séquentiel, 1/s)
+        const uniqueVilles = new Set<string>();
+        cards.forEach((c) => { if (c.dataset.ville) uniqueVilles.add(c.dataset.ville); });
+        console.log('Villes à geocoder :', [...uniqueVilles]);
+
+        await geocodeSequential([...uniqueVilles]);
+        console.log('Cache geocode :', geocodeCache);
+
+        // Calculer la distance pour chaque carte
+        cards.forEach((card) => {
+          const ville = card.dataset.ville ?? '';
+          const coords = geocodeCache[ville];
+          if (coords) {
+            const dist = haversine(userLat, userLng, coords.lat, coords.lng);
+            card.dataset.distanceKm = dist.toFixed(1);
+            const badge = card.querySelector<HTMLElement>('.distance-badge');
+            if (badge) {
+              badge.textContent = `${dist < 1 ? '< 1' : Math.round(dist)} km`;
+              badge.classList.remove('hidden');
+            }
+          } else {
+            card.dataset.distanceKm = '99999';
+          }
+        });
+
+        // Trier les cartes par distance dans la grille
+        const sorted = [...cards].sort((a, b) =>
+          parseFloat(a.dataset.distanceKm ?? '99999') - parseFloat(b.dataset.distanceKm ?? '99999')
+        );
+        sorted.forEach((c) => grid.appendChild(c));
+
+        geoActive = true;
+        btnGeo.classList.remove('text-gray-400', 'border-gray-200');
+        btnGeo.classList.add('text-orange-500', 'border-orange-400');
+        setGeoLoading(false);
+      },
+      (err) => {
+        setGeoLoading(false);
+        if (err.code !== err.PERMISSION_DENIED) {
+          alert('Impossible d\'obtenir votre position.');
+        }
+      },
+      { timeout: 10000 }
+    );
+  });
 </script>
