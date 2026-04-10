@@ -1,7 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { createClient } from '@supabase/supabase-js';
-import { sanityClient } from '../lib/sanity.js';
+import { sanityClient, urlForImage } from '../lib/sanity.js';
 
 // Auth
 const accessToken = Astro.cookies.get('sb-access-token')?.value;
@@ -28,7 +28,7 @@ if (adherentRow?.sanity_doc_id && sanityClient) {
   fiche = await sanityClient.fetch(
     `*[_type == "adherent" && _id == $id][0]{
       _id, nom, soustitre, type, publics, saison,
-      description, ville, adresse, horaires, tarifs, siteWeb
+      description, ville, adresse, horaires, tarifs, siteWeb, image
     }`,
     { id: adherentRow.sanity_doc_id.trim() }
   ).catch(() => null);
@@ -42,72 +42,77 @@ const publicOptions = ['Famille', 'Enfants', 'Adultes', 'Tous', 'Team building']
 const saisonOptions = ['Été', 'Hiver', 'Toute saison'];
 ---
 
-<Layout title="Mon profil — Loisirs 66">
+<Layout title="Mon profil — Loisirs 66" bodyClass="bg-gray-50 text-gray-900">
   <main class="max-w-2xl mx-auto px-4 py-8">
+
+    <!-- Logo -->
+    <div class="flex justify-center mb-8">
+      <img src="/logo-aplpo.avif" alt="APLPO" class="h-16 w-auto" />
+    </div>
 
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-white">Ma fiche activité</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Ma fiche activité</h1>
         <p class="text-gray-500 text-sm">{user.email}</p>
       </div>
       <form method="POST" action="/api/logout">
-        <button class="text-gray-500 text-sm hover:text-gray-300 transition-colors">
+        <button class="text-gray-500 text-sm hover:text-gray-700 transition-colors">
           Déconnexion
         </button>
       </form>
     </div>
 
     {success === '1' && (
-      <div class="bg-green-950 border border-green-800 text-green-400 text-sm rounded-lg px-4 py-3 mb-6">
+      <div class="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-4 py-3 mb-6">
         Fiche mise à jour avec succès.
       </div>
     )}
 
     {erreur === 'no-doc' && (
-      <div class="bg-red-950 border border-red-800 text-red-400 text-sm rounded-lg px-4 py-3 mb-6">
+      <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-6">
         Aucune fiche n'est encore liée à votre compte. Contactez l'administrateur.
       </div>
     )}
 
     {!adherentRow?.sanity_doc_id ? (
-      <div class="bg-[#1c1c1c] rounded-2xl p-8 text-center">
-        <p class="text-gray-400">Votre compte n'est pas encore lié à une fiche activité.</p>
-        <p class="text-gray-500 text-sm mt-2">Contactez l'administrateur APLPO.</p>
+      <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-8 text-center">
+        <p class="text-gray-500">Votre compte n'est pas encore lié à une fiche activité.</p>
+        <p class="text-gray-400 text-sm mt-2">Contactez l'administrateur APLPO.</p>
       </div>
     ) : (
-      <form method="POST" action="/api/update-profil" class="space-y-6">
-        <div class="bg-[#1c1c1c] rounded-2xl p-6 space-y-5">
+      <form method="POST" action="/api/update-profil" enctype="multipart/form-data" class="space-y-6">
+        <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-6 space-y-5">
 
-          <h2 class="text-xs text-gray-500 uppercase tracking-widest">Informations générales</h2>
+          <h2 class="text-xs text-gray-400 uppercase tracking-widest">Informations générales</h2>
 
           <!-- Nom -->
           <div>
-            <label class="block text-sm text-gray-400 mb-2">Nom de l'activité *</label>
+            <label class="block text-sm text-gray-700 mb-2">Nom de l'activité *</label>
             <input
               name="nom" type="text" required
               value={fiche?.nom ?? ''}
-              class="w-full bg-[#111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white outline-none focus:border-gray-500"
+              class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 outline-none focus:border-orange-400"
             />
           </div>
 
           <!-- Sous-titre -->
           <div>
-            <label class="block text-sm text-gray-400 mb-2">Sous-titre</label>
+            <label class="block text-sm text-gray-700 mb-2">Sous-titre</label>
             <input
               name="soustitre" type="text"
               value={fiche?.soustitre ?? ''}
               placeholder="Ex : Salle de réalité virtuelle"
-              class="w-full bg-[#111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-gray-500"
+              class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-400"
             />
           </div>
 
           <!-- Type -->
           <div>
-            <label class="block text-sm text-gray-400 mb-2">Type</label>
+            <label class="block text-sm text-gray-700 mb-2">Type</label>
             <select
               name="type"
-              class="w-full bg-[#111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white outline-none focus:border-gray-500"
+              class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 outline-none focus:border-orange-400"
             >
               <option value="">— Choisir —</option>
               {typeOptions.map(t => (
@@ -118,7 +123,7 @@ const saisonOptions = ['Été', 'Hiver', 'Toute saison'];
 
           <!-- Public (cases à cocher) -->
           <div>
-            <label class="block text-sm text-gray-400 mb-3">Public(s)</label>
+            <label class="block text-sm text-gray-700 mb-3">Public(s)</label>
             <div class="flex flex-wrap gap-3">
               {publicOptions.map(p => (
                 <label class="flex items-center gap-2 cursor-pointer">
@@ -127,9 +132,9 @@ const saisonOptions = ['Été', 'Hiver', 'Toute saison'];
                     name="publics"
                     value={p}
                     checked={(fiche?.publics ?? []).includes(p)}
-                    class="accent-blue-500"
+                    class="accent-orange-500"
                   />
-                  <span class="text-sm text-gray-300">{p}</span>
+                  <span class="text-sm text-gray-700">{p}</span>
                 </label>
               ))}
             </div>
@@ -137,10 +142,10 @@ const saisonOptions = ['Été', 'Hiver', 'Toute saison'];
 
           <!-- Saison -->
           <div>
-            <label class="block text-sm text-gray-400 mb-2">Saison</label>
+            <label class="block text-sm text-gray-700 mb-2">Saison</label>
             <select
               name="saison"
-              class="w-full bg-[#111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white outline-none focus:border-gray-500"
+              class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 outline-none focus:border-orange-400"
             >
               <option value="">— Choisir —</option>
               {saisonOptions.map(s => (
@@ -151,84 +156,125 @@ const saisonOptions = ['Été', 'Hiver', 'Toute saison'];
 
           <!-- Description -->
           <div>
-            <label class="block text-sm text-gray-400 mb-2">Description</label>
+            <label class="block text-sm text-gray-700 mb-2">Description</label>
             <textarea
               name="description"
               rows={4}
-              class="w-full bg-[#111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-gray-500 resize-none"
+              class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-400 resize-none"
             >{fiche?.description ?? ''}</textarea>
           </div>
         </div>
 
-        <div class="bg-[#1c1c1c] rounded-2xl p-6 space-y-5">
-          <h2 class="text-xs text-gray-500 uppercase tracking-widest">Infos pratiques</h2>
+        <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-6 space-y-5">
+          <h2 class="text-xs text-gray-400 uppercase tracking-widest">Infos pratiques</h2>
 
           <!-- Ville -->
           <div>
-            <label class="block text-sm text-gray-400 mb-2">Ville</label>
+            <label class="block text-sm text-gray-700 mb-2">Ville</label>
             <input
               name="ville" type="text"
               value={fiche?.ville ?? ''}
-              class="w-full bg-[#111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white outline-none focus:border-gray-500"
+              class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 outline-none focus:border-orange-400"
             />
           </div>
 
           <!-- Adresse -->
           <div>
-            <label class="block text-sm text-gray-400 mb-2">Adresse</label>
+            <label class="block text-sm text-gray-700 mb-2">Adresse</label>
             <input
               name="adresse" type="text"
               value={fiche?.adresse ?? ''}
               placeholder="Ex : 10 rue des Lilas, 66000"
-              class="w-full bg-[#111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-gray-500"
+              class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-400"
             />
           </div>
 
           <!-- Horaires -->
           <div>
-            <label class="block text-sm text-gray-400 mb-2">Horaires</label>
+            <label class="block text-sm text-gray-700 mb-2">Horaires</label>
             <input
               name="horaires" type="text"
               value={fiche?.horaires ?? ''}
               placeholder="Ex : Mar–Dim, 10h–20h"
-              class="w-full bg-[#111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-gray-500"
+              class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-400"
             />
           </div>
 
           <!-- Tarifs -->
           <div>
-            <label class="block text-sm text-gray-400 mb-2">Tarifs</label>
+            <label class="block text-sm text-gray-700 mb-2">Tarifs</label>
             <input
               name="tarifs" type="text"
               value={fiche?.tarifs ?? ''}
               placeholder="Ex : Dès 15€ / séance"
-              class="w-full bg-[#111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-gray-500"
+              class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-400"
             />
           </div>
 
           <!-- Site web -->
           <div>
-            <label class="block text-sm text-gray-400 mb-2">Site web</label>
+            <label class="block text-sm text-gray-700 mb-2">Site web</label>
             <input
               name="siteWeb" type="url"
               value={fiche?.siteWeb ?? ''}
               placeholder="https://..."
-              class="w-full bg-[#111] border border-[#2e2e2e] rounded-lg px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-gray-500"
+              class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-400"
             />
+          </div>
+        </div>
+
+        <!-- Image -->
+        <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-6 space-y-4">
+          <h2 class="text-xs text-gray-400 uppercase tracking-widest">Image</h2>
+
+          {fiche?.image && (
+            <img
+              src={urlForImage(fiche.image)?.width(300).height(150).fit('crop').url() ?? ''}
+              alt="Image actuelle"
+              class="w-full h-36 object-cover rounded-xl"
+            />
+          )}
+
+          <div>
+            <label class="block text-sm text-gray-700 mb-2">
+              {fiche?.image ? 'Remplacer l\'image' : 'Ajouter une image'}
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer w-full bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-orange-400 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              <span id="file-label" class="text-sm text-gray-500 truncate">Choisir une image…</span>
+              <input
+                type="file"
+                name="image"
+                accept="image/*"
+                class="sr-only"
+                id="image-input"
+              />
+            </label>
           </div>
         </div>
 
         <button
           type="submit"
-          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-colors"
+          class="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 rounded-xl transition-colors"
         >
           Enregistrer les modifications
         </button>
 
-        <a href="/" class="block text-center text-gray-500 text-sm hover:text-gray-300 transition-colors">
+        <a href="/" class="block text-center text-gray-500 text-sm hover:text-gray-700 transition-colors">
           ← Retour aux activités
         </a>
       </form>
     )}
   </main>
+<script>
+  document.getElementById('image-input')?.addEventListener('change', (e) => {
+    const input = e.target as HTMLInputElement;
+    const label = document.getElementById('file-label');
+    if (label) {
+      label.textContent = input.files?.[0]?.name ?? 'Choisir une image…';
+    }
+  });
+</script>
 </Layout>
