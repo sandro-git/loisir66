@@ -46,6 +46,17 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
     siteWeb:    form.get('siteWeb') || undefined,
   };
 
+  // Upload image si fournie
+  const imageFile = form.get('image') as File | null;
+  if (imageFile && imageFile.size > 0) {
+    const buffer = Buffer.from(await imageFile.arrayBuffer());
+    const asset  = await sanityWriter.assets.upload('image', buffer, {
+      filename:    imageFile.name,
+      contentType: imageFile.type,
+    });
+    patch.image = { _type: 'image', asset: { _type: 'reference', _ref: asset._id } };
+  }
+
   // Supprime les champs vides pour ne pas écraser avec null
   Object.keys(patch).forEach(k => {
     if (patch[k] === '' || patch[k] === null) delete patch[k];

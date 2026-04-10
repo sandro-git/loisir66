@@ -4,9 +4,10 @@ import '../styles/global.css';
 interface Props {
   title?: string;
   description?: string;
+  bodyClass?: string;
 }
 
-const { title = 'Loisirs 66', description = 'Loisirs 66 — activités et loisirs dans les Pyrénées-Orientales' } = Astro.props;
+const { title = 'Loisirs 66', description = 'Loisirs 66 — activités et loisirs dans les Pyrénées-Orientales', bodyClass = 'bg-gray-50 text-gray-900' } = Astro.props;
 ---
 
 <!doctype html>
@@ -18,7 +19,7 @@ const { title = 'Loisirs 66', description = 'Loisirs 66 — activités et loisir
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
   </head>
-  <body class="bg-gray-50 text-gray-900 min-h-screen">
+  <body class={`${bodyClass} min-h-screen`}>
     <slot />
   </body>
 </html>
