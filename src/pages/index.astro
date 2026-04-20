@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { Image } from 'astro:assets';
 import { sanityClient, urlForImage } from '../lib/sanity.js';
 
 const activites: any[] = sanityClient
@@ -21,31 +22,102 @@ function toTitleCase(str: string): string {
 
 const typeEmoji: Record<string, string> = { 'Outdoor': '🌿', 'Indoor': '🏠' };
 const saisonEmoji: Record<string, string> = { 'Été': '☀️', 'Hiver': '❄️', 'Toute saison': '🗓️' };
+
+function getFallbackImg(nom: string, type: string): string {
+  const n = nom.toLowerCase();
+  const q = '?auto=format&fit=crop&w=480&h=200&q=80';
+  const u = 'https://images.unsplash.com/photo-';
+  const checks: [string[], string][] = [
+    [['ski','neige','alpin','romeu','2000','snowboard','hiver','glisse'],       '1551698618-1dfe5d97d256'],
+    [['plongée','diving','aqua','snorkel','corail'],                            '1544551763-46a013bb70d5'],
+    [['nautique','voile','kayak','canoe','canoë','bateau','régate','surf'],      '1530053969600-caed2596d242'],
+    [['escalade','grimpe','via ferrata','bloc','varappe'],                      '1522163182402-834f871fd851'],
+    [['vélo','vtt','cyclisme','bmx','bike','cycle'],                            '1558618666-fcd25c85cd64'],
+    [['cheval','équi','horse','poney','ranch','polo'],                          '1553284965-83fd3e82fa5a'],
+    [['ferme','élevage','âne','poule','animaux de la'],                         '1500595046743-cd271d694d30'],
+    [['tortue','reptile','terrarium'],                                          '1548550804-f38e88d0e2f6'],
+    [['jardin','botanique','fleur','ariane','potager','plante'],                '1416879595882-3373a0480b5b'],
+    [['vin','wine','dégustation','cave','vigne','vendange'],                    '1506377247377-2a5b3b417ebb'],
+    [['children','paradise','enfant','kids','ludique','jeux','trampoline'],     '1566127444979-2707e8df55bb'],
+    [['yoga','pilates','méditation','zen','sophrologie','bien-être'],           '1544367567-0f2fcb009e0b'],
+    [['cuisine','gastro','cook','chef','pâtisserie','atelier culinaire'],       '1556909114-f6e7ad7d3136'],
+    [['randonnée','trek','rando','hiking','marche nordique'],                   '1483728642387-6c3bdd6c93e5'],
+    [['parc','acrobat','accro','tyrolienne','arbre','forêt','aventure'],        '1505765050516-f72dc741e925'],
+    [['laser','paintball','airsoft','escape','room'],                           '1612170153604-b7f7af55e94b'],
+    [['vr','réalité virtuelle','virtuel'],                                      '1617802690658-1173a812650d'],
+    [['karting','kart','circuit','moto'],                                       '1568772585407-9f3a8f8b4b4a'],
+    [['golf'],                                                                  '1537175467824-4c4e817c1bbe'],
+    [['tennis','padel','squash','badminton'],                                   '1554068865-24cecd4e34b8'],
+    [['musique','chant','concert','orchestre'],                                 '1511671001-8673-4aff-aea9-cd955b631f6b'],
+    [['photo','photographie'],                                                  '1516035069371-29a1b244cc32'],
+    [['musée','expo','patrimoine','château','visite'],                          '1554907984-15263bfd63bd'],
+    [['théâtre','spectacle','danse','ballet'],                                  '1507608168822-ecf2f7f7e8fd'],
+    [['pêche','fishing'],                                                       '1548438294-1ad5d5f4f063'],
+    [['spa','massage','bain','détente','thermal'],                              '1540555700478-4be289fbecef'],
+    [['peinture','dessin','art','poterie','céramique'],                         '1513364776144-60967b0f800f'],
+  ];
+  for (const [keywords, id] of checks) {
+    if (keywords.some(k => n.includes(k))) return u + id + q;
+  }
+  if (type === 'Indoor') return u + '1571019613454-1cb2f99b2d8b' + q;
+  return u + '1506905925346-21bda4d32df4' + q;
+}
 ---
 
 <Layout title="Loisirs 66 — Trouver une activité">
 
   <!-- Barre de recherche sticky (apparaît quand le hero sort du viewport) -->
   <div id="sticky-bar" class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md shadow-md -translate-y-full transition-transform duration-300 pointer-events-none">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex gap-2">
-      <input
-        id="sticky-search-input"
-        type="search"
-        placeholder="Escalade, karting, plongée..."
-        autocomplete="off"
-        class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-300 text-sm"
-      />
-      <button
-        id="sticky-btn-geo"
-        title="Activités proches de moi"
-        class="flex-shrink-0 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-500 hover:text-orange-500 transition-colors outline-none"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="3"/>
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-          <circle cx="12" cy="12" r="8" stroke-dasharray="4 2"/>
-        </svg>
-      </button>
+    <div class="max-w-6xl mx-auto px-4 pt-3 pb-2">
+      <!-- Ligne recherche + géo -->
+      <div class="flex gap-2 mb-2">
+        <input
+          id="sticky-search-input"
+          type="search"
+          placeholder="Escalade, karting, plongée..."
+          autocomplete="off"
+          class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-300 text-sm"
+        />
+        <button
+          id="sticky-btn-geo"
+          title="Activités proches de moi"
+          class="flex-shrink-0 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-500 hover:text-orange-500 transition-colors outline-none"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+            <circle cx="12" cy="12" r="8" stroke-dasharray="4 2"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Chips de filtre -->
+      <div class="flex flex-wrap sm:flex-nowrap gap-2 items-center pb-1 max-h-[72px] overflow-hidden sm:max-h-none sm:overflow-x-auto">
+        {types.map((t) => (
+          <button class="chip flex-shrink-0" data-filter="type" data-value={t.toLowerCase()}>
+            {typeEmoji[t] ?? ''} {t}
+          </button>
+        ))}
+        <div class="w-px h-5 bg-gray-200 mx-0.5 flex-shrink-0"></div>
+        {publics.map((p) => (
+          <button class="chip flex-shrink-0" data-filter="public" data-value={p.toLowerCase()}>{p}</button>
+        ))}
+        <div class="w-px h-5 bg-gray-200 mx-0.5 flex-shrink-0"></div>
+        {saisons.map((s) => (
+          <button class="chip flex-shrink-0" data-filter="saison" data-value={s.toLowerCase()}>
+            {saisonEmoji[s] ?? ''} {s}
+          </button>
+        ))}
+        {villes.length > 0 && (
+          <>
+            <div class="w-px h-5 bg-gray-200 mx-0.5 flex-shrink-0"></div>
+            {villes.map((v) => (
+              <button class="chip flex-shrink-0" data-filter="ville" data-value={v.toLowerCase()}>
+                📍 {toTitleCase(v)}
+              </button>
+            ))}
+          </>
+        )}
+      </div>
     </div>
   </div>
 
@@ -53,7 +125,7 @@ const saisonEmoji: Record<string, string> = { 'Été': '☀️', 'Hiver': '❄�
 
     <!-- Logo -->
     <div class="flex justify-center mb-6">
-      <img src="/logo-aplpo.avif" alt="APLPO — Loisirs 66" class="w-1/2 sm:w-auto sm:h-16" />
+      <img src="/logo-aplpo.avif" alt="APLPO — Loisirs 66" class="w-1/2 sm:w-auto sm:h-16" loading="eager" fetchpriority="high" />
     </div>
 
     <!-- Hero -->
@@ -128,8 +200,9 @@ const saisonEmoji: Record<string, string> = { 'Été': '☀️', 'Hiver': '❄�
 
     <!-- Grille de cartes -->
     <div id="cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-      {activites?.map((a) => {
+      {activites?.map((a, i) => {
         const imgUrl = a.image ? urlForImage(a.image)?.width(480).height(200).fit('crop').url() : null;
+        const eager = i === 0;
         return (
           <a
             href={a.slug ? `/loisirs66/${a.slug}` : '#'}
@@ -141,23 +214,36 @@ const saisonEmoji: Record<string, string> = { 'Été': '☀️', 'Hiver': '❄�
             data-saison={(a.saison ?? '').toLowerCase()}
             data-ville={(a.ville ?? '').toLowerCase()}
           >
-            <div class="h-36 overflow-hidden flex-shrink-0">
+            <div class="h-36 overflow-hidden flex-shrink-0 relative">
               {imgUrl ? (
-                <img
+                <Image
                   src={imgUrl}
-                  alt={a.nom}
+                  alt={a.nom ?? ''}
+                  width={480}
+                  height={200}
+                  loading={eager ? 'eager' : 'lazy'}
                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
               ) : (
-                <div class={`w-full h-full flex items-center justify-center ${
-                  a.type === 'Outdoor'
-                    ? 'bg-gradient-to-br from-green-300 via-emerald-400 to-teal-500'
-                    : 'bg-gradient-to-br from-sky-300 via-blue-400 to-indigo-500'
-                }`}>
-                  <span class="text-white/25 text-7xl font-black select-none">
-                    {(a.nom ?? '').charAt(0)}
-                  </span>
-                </div>
+                <>
+                  <Image
+                    src={getFallbackImg(a.nom ?? '', a.type ?? '')}
+                    alt={a.nom ?? ''}
+                    width={480}
+                    height={200}
+                    loading={eager ? 'eager' : 'lazy'}
+                    class="fallback-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div class={`fallback-gradient hidden absolute inset-0 w-full h-full flex items-center justify-center ${
+                    a.type === 'Outdoor'
+                      ? 'bg-gradient-to-br from-green-300 via-emerald-400 to-teal-500'
+                      : 'bg-gradient-to-br from-sky-300 via-blue-400 to-indigo-500'
+                  }`}>
+                    <span class="text-white/25 text-7xl font-black select-none">
+                      {(a.nom ?? '').charAt(0)}
+                    </span>
+                  </div>
+                </>
               )}
             </div>
             <div class="p-5 flex flex-col gap-2 flex-1">
@@ -353,4 +439,15 @@ const saisonEmoji: Record<string, string> = { 'Été': '☀️', 'Hiver': '❄�
     if (stickyInput) stickyInput.value = searchInput.value;
   });
   stickyBtnGeo?.addEventListener('click', () => btnGeo?.click());
+<<<<<<< HEAD
+=======
+
+  // Fallback gradient si l'image Unsplash ne charge pas
+  document.querySelectorAll<HTMLImageElement>('.fallback-img').forEach(img => {
+    img.addEventListener('error', function () {
+      this.classList.add('hidden');
+      (this.nextElementSibling as HTMLElement)?.classList.remove('hidden');
+    });
+  });
+>>>>>>> UI
 </script>
