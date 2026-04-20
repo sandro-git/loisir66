@@ -439,8 +439,6 @@ function getFallbackImg(nom: string, type: string): string {
     if (stickyInput) stickyInput.value = searchInput.value;
   });
   stickyBtnGeo?.addEventListener('click', () => btnGeo?.click());
-<<<<<<< HEAD
-=======
 
   // Fallback gradient si l'image Unsplash ne charge pas
   document.querySelectorAll<HTMLImageElement>('.fallback-img').forEach(img => {
@@ -449,5 +447,4 @@ function getFallbackImg(nom: string, type: string): string {
       (this.nextElementSibling as HTMLElement)?.classList.remove('hidden');
     });
   });
->>>>>>> UI
 </script>
