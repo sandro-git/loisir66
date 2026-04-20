@@ -50,7 +50,7 @@ const saisonEmoji: Record<string, string> = { 'Été': '☀️', 'Hiver': '❄�
         </button>
       </div>
       <!-- Chips de filtre -->
-      <div class="flex flex-wrap sm:flex-nowrap sm:overflow-x-auto gap-2 items-center pb-1">
+      <div class="flex flex-wrap sm:flex-nowrap gap-2 items-center pb-1 max-h-[72px] overflow-hidden sm:max-h-none sm:overflow-x-auto">
         {types.map((t) => (
           <button class="chip flex-shrink-0" data-filter="type" data-value={t.toLowerCase()}>
             {typeEmoji[t] ?? ''} {t}
