@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { Image } from 'astro:assets';
 import { sanityClient, urlForImage } from '../lib/sanity.js';
 
 const activites: any[] = sanityClient
@@ -214,16 +215,20 @@ function getFallbackImg(nom: string, type: string): string {
           >
             <div class="h-36 overflow-hidden flex-shrink-0 relative">
               {imgUrl ? (
-                <img
+                <Image
                   src={imgUrl}
-                  alt={a.nom}
+                  alt={a.nom ?? ''}
+                  width={480}
+                  height={200}
                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
               ) : (
                 <>
-                  <img
+                  <Image
                     src={getFallbackImg(a.nom ?? '', a.type ?? '')}
-                    alt={a.nom}
+                    alt={a.nom ?? ''}
+                    width={480}
+                    height={200}
                     class="fallback-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   <div class={`fallback-gradient hidden absolute inset-0 w-full h-full flex items-center justify-center ${
