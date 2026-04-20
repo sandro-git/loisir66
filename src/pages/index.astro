@@ -24,6 +24,31 @@ const saisonEmoji: Record<string, string> = { 'Été': '☀️', 'Hiver': '❄�
 ---
 
 <Layout title="Loisirs 66 — Trouver une activité">
+
+  <!-- Barre de recherche sticky (apparaît quand le hero sort du viewport) -->
+  <div id="sticky-bar" class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md shadow-md -translate-y-full transition-transform duration-300 pointer-events-none">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex gap-2">
+      <input
+        id="sticky-search-input"
+        type="search"
+        placeholder="Escalade, karting, plongée..."
+        autocomplete="off"
+        class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-300 text-sm"
+      />
+      <button
+        id="sticky-btn-geo"
+        title="Activités proches de moi"
+        class="flex-shrink-0 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-500 hover:text-orange-500 transition-colors outline-none"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+          <circle cx="12" cy="12" r="8" stroke-dasharray="4 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
   <main class="max-w-6xl mx-auto px-4 py-8">
 
     <!-- Logo -->
@@ -32,7 +57,7 @@ const saisonEmoji: Record<string, string> = { 'Été': '☀️', 'Hiver': '❄�
     </div>
 
     <!-- Hero -->
-    <div class="relative rounded-3xl overflow-hidden mb-6 bg-gradient-to-br from-orange-400 via-rose-300 to-sky-400 p-8 md:p-12">
+    <div data-hero class="relative rounded-3xl overflow-hidden mb-6 bg-gradient-to-br from-orange-400 via-rose-300 to-sky-400 p-8 md:p-12">
       <div class="absolute -top-24 -right-24 w-80 h-80 bg-white/20 rounded-full blur-3xl pointer-events-none"></div>
       <div class="absolute -bottom-24 -left-24 w-80 h-80 bg-white/20 rounded-full blur-3xl pointer-events-none"></div>
       <div class="relative z-10">
@@ -303,4 +328,29 @@ const saisonEmoji: Record<string, string> = { 'Été': '☀️', 'Hiver': '❄�
       { timeout: 10000 }
     );
   });
+
+  // Sticky search bar
+  const stickyBar       = document.getElementById('sticky-bar') as HTMLElement;
+  const stickyInput     = document.getElementById('sticky-search-input') as HTMLInputElement;
+  const stickyBtnGeo    = document.getElementById('sticky-btn-geo') as HTMLButtonElement;
+  const hero            = document.querySelector('[data-hero]') as HTMLElement;
+
+  const heroObserver = new IntersectionObserver(
+    ([entry]) => {
+      const hidden = entry.isIntersecting;
+      stickyBar.classList.toggle('-translate-y-full', hidden);
+      stickyBar.classList.toggle('pointer-events-none', hidden);
+    },
+    { threshold: 0 }
+  );
+  if (hero) heroObserver.observe(hero);
+
+  stickyInput?.addEventListener('input', () => {
+    if (searchInput) searchInput.value = stickyInput.value;
+    applyFilters();
+  });
+  searchInput?.addEventListener('input', () => {
+    if (stickyInput) stickyInput.value = searchInput.value;
+  });
+  stickyBtnGeo?.addEventListener('click', () => btnGeo?.click());
 </script>
