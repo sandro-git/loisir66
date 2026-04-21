@@ -103,5 +103,11 @@ export const adherentType = defineType({
       type: 'image',
       options: { hotspot: true },
     }),
+    defineField({
+      name: 'branche',
+      title: 'Branche',
+      type: 'reference',
+      to: [{ type: 'branche' }],
+    }),
   ],
 })
