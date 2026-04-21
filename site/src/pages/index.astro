@@ -231,7 +231,7 @@ function getFallbackImg(nom: string, type: string): string {
     <div id="cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
       {activites?.map((a, i) => {
         const imgUrl = a.image ? urlForImage(a.image)?.width(480).height(200).fit('crop').url() : null;
-        const eager = i === 0;
+        const eager = false;
         return (
           <a
             href={a.slug ? `/loisirs66/${a.slug}` : '#'}
