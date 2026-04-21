@@ -15,6 +15,17 @@ const saisons = [...new Set(activites.map((a) => a.saison).filter(Boolean))] as 
 const villes  = [...new Set(activites.map((a) => a.ville).filter(Boolean))].sort() as string[];
 const total   = activites.length;
 
+const univers = [
+  { nom: 'Nature & Randonnée',  img: 'https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Sports & Aventure',   img: 'https://images.unsplash.com/photo-1522163182402-834f871fd851?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Bien-être',           img: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Gastronomie',         img: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Visites & Culture',   img: 'https://images.unsplash.com/photo-1554907984-15263bfd63bd?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Ateliers',            img: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Aquatique',           img: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Jeux & Loisirs',      img: 'https://images.unsplash.com/photo-1505765050516-f72dc741e925?auto=format&fit=crop&w=480&h=200&q=80' },
+];
+
 function toTitleCase(str: string): string {
   if (!str) return str;
   return str.toLowerCase().replace(/(?:^|[\s\-\/])\S/g, (c) => c.toUpperCase());
@@ -192,6 +203,20 @@ function getFallbackImg(nom: string, type: string): string {
         </>
       )}
     </div>
+
+    <!-- Nos univers -->
+    <section class="mb-8">
+      <h2 class="text-xl font-bold text-gray-900 mb-4">Nos univers</h2>
+      <div class="grid grid-cols-2 gap-3">
+        {univers.map((u) => (
+          <a href="#" class="relative rounded-2xl overflow-hidden h-28 group block">
+            <img src={u.img} alt={u.nom} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
+            <span class="absolute bottom-3 left-3 right-3 text-white font-bold text-sm leading-tight">{u.nom}</span>
+          </a>
+        ))}
+      </div>
+    </section>
 
     <!-- Compteur -->
     <p id="count" class="text-gray-400 text-sm mb-5">
