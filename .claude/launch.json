@@ -5,12 +5,14 @@
       "name": "Astro Dev",
       "runtimeExecutable": "bun",
       "runtimeArgs": ["run", "dev"],
+      "cwd": "site",
       "port": 4321
     },
     {
       "name": "Astro Preview",
       "runtimeExecutable": "bun",
       "runtimeArgs": ["run", "preview"],
+      "cwd": "site",
       "port": 4321
     }
   ]
