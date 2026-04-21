@@ -208,7 +208,7 @@ function getFallbackImg(nom: string, type: string): string {
     <section id="univers-section" class="mb-8">
       <h2 class="text-xl font-bold text-gray-900 mb-4">Nos univers</h2>
       <div class="grid grid-cols-2 gap-3">
-        {univers.map((u) => (
+        {univers.map((u, i) => (
           <button class="univers-card relative rounded-2xl overflow-hidden h-28 group block w-full text-left" data-branche-filter={u.slug}>
             <Image src={u.img} alt={u.nom} width={480} height={200} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none" loading={i < 2 ? 'eager' : 'lazy'} />
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none"></div>
@@ -439,6 +439,7 @@ function getFallbackImg(nom: string, type: string): string {
     [...cards].sort((a, b) => (a.dataset.nom ?? '').localeCompare(b.dataset.nom ?? '')).forEach((c) => grid.appendChild(c));
     btnGeo.classList.remove('text-orange-500');
     btnGeo.classList.add('text-gray-500');
+    if (universSection) universSection.classList.remove('hidden');
   }
 
   let geoActive = false;
@@ -466,6 +467,7 @@ function getFallbackImg(nom: string, type: string): string {
         geoActive = true;
         btnGeo.classList.remove('text-gray-500');
         btnGeo.classList.add('text-orange-500');
+        if (universSection) universSection.classList.add('hidden');
         setGeoLoading(false);
       },
       (err) => { setGeoLoading(false); if (err.code !== err.PERMISSION_DENIED) alert("Impossible d'obtenir votre position."); },
