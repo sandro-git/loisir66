@@ -15,5 +15,13 @@
       "cwd": "site",
       "port": 4321
     }
+  ,
+    {
+      "name": "Sanity Studio",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "studio",
+      "port": 3333
+    }
   ]
 }
