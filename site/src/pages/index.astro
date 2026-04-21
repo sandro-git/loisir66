@@ -5,7 +5,7 @@ import { sanityClient, urlForImage } from '../lib/sanity.js';
 
 const activites: any[] = sanityClient
   ? await sanityClient.fetch(
-      `*[_type == "adherent"] | order(nom asc) { nom, "slug": slug.current, type, publics, saison, description, ville, image }`
+      `*[_type == "adherent"] | order(nom asc) { nom, "slug": slug.current, type, publics, saison, description, ville, image, "branche": branche->slug.current }`
     ).catch(() => [])
   : [];
 
@@ -16,14 +16,14 @@ const villes  = [...new Set(activites.map((a) => a.ville).filter(Boolean))].sort
 const total   = activites.length;
 
 const univers = [
-  { nom: 'Nature & Randonnée',  img: 'https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Sports & Aventure',   img: 'https://images.unsplash.com/photo-1522163182402-834f871fd851?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Bien-être',           img: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Gastronomie',         img: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Visites & Culture',   img: 'https://images.unsplash.com/photo-1554907984-15263bfd63bd?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Ateliers',            img: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Aquatique',           img: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Jeux & Loisirs',      img: 'https://images.unsplash.com/photo-1505765050516-f72dc741e925?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Nature & Randonnée',  slug: 'nature-randonnee',  img: 'https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Sports & Aventure',   slug: 'sports-aventure',   img: 'https://images.unsplash.com/photo-1522163182402-834f871fd851?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Bien-être',           slug: 'bien-etre',         img: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Gastronomie',         slug: 'gastronomie',       img: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Visites & Culture',   slug: 'visites-culture',   img: 'https://images.unsplash.com/photo-1554907984-15263bfd63bd?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Ateliers',            slug: 'ateliers',          img: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Aquatique',           slug: 'aquatique',         img: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=480&h=200&q=80' },
+  { nom: 'Jeux & Loisirs',      slug: 'jeux-loisirs',      img: 'https://images.unsplash.com/photo-1505765050516-f72dc741e925?auto=format&fit=crop&w=480&h=200&q=80' },
 ];
 
 function toTitleCase(str: string): string {
@@ -205,15 +205,16 @@ function getFallbackImg(nom: string, type: string): string {
     </div>
 
     <!-- Nos univers -->
-    <section class="mb-8">
+    <section id="univers-section" class="mb-8">
       <h2 class="text-xl font-bold text-gray-900 mb-4">Nos univers</h2>
       <div class="grid grid-cols-2 gap-3">
         {univers.map((u) => (
-          <a href="#" class="relative rounded-2xl overflow-hidden h-28 group block">
-            <img src={u.img} alt={u.nom} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
-            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
-            <span class="absolute bottom-3 left-3 right-3 text-white font-bold text-sm leading-tight">{u.nom}</span>
-          </a>
+          <button class="univers-card relative rounded-2xl overflow-hidden h-28 group block w-full text-left" data-branche-filter={u.slug}>
+            <img src={u.img} alt={u.nom} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none" loading="lazy" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none"></div>
+            <div class="univers-overlay absolute inset-0 bg-orange-500/0 transition-colors duration-200 pointer-events-none"></div>
+            <span class="absolute bottom-3 left-3 right-3 text-white font-bold text-sm leading-tight pointer-events-none">{u.nom}</span>
+          </button>
         ))}
       </div>
     </section>
@@ -238,6 +239,7 @@ function getFallbackImg(nom: string, type: string): string {
             data-public={(a.publics ?? []).join(',').toLowerCase()}
             data-saison={(a.saison ?? '').toLowerCase()}
             data-ville={(a.ville ?? '').toLowerCase()}
+            data-branche={(a.branche ?? '').toLowerCase()}
           >
             <div class="h-36 overflow-hidden flex-shrink-0 relative">
               {imgUrl ? (
@@ -330,24 +332,27 @@ function getFallbackImg(nom: string, type: string): string {
   const btnGeo      = document.getElementById('btn-geolocate') as HTMLButtonElement;
   const geoIcon     = document.getElementById('geo-icon') as SVGElement;
   const geoSpinner  = document.getElementById('geo-spinner') as SVGElement;
-  const grid        = document.getElementById('cards-grid') as HTMLElement;
+  const grid          = document.getElementById('cards-grid') as HTMLElement;
+  const universSection = document.getElementById('univers-section') as HTMLElement;
 
-  const filters: Record<string, string> = { type: '', public: '', saison: '', ville: '' };
+  const filters: Record<string, string> = { type: '', public: '', saison: '', ville: '', branche: '' };
 
   function applyFilters() {
     const query = searchInput.value.toLowerCase();
     let visible = 0;
     cards.forEach((card) => {
       const matches =
-        (!query          || (card.dataset.nom ?? '').includes(query) || (card.dataset.description ?? '').includes(query)) &&
-        (!filters.type   || (card.dataset.type ?? '') === filters.type) &&
-        (!filters.public || (card.dataset.public ?? '').includes(filters.public)) &&
-        (!filters.saison || (card.dataset.saison ?? '') === filters.saison) &&
-        (!filters.ville  || (card.dataset.ville ?? '') === filters.ville);
+        (!query            || (card.dataset.nom ?? '').includes(query) || (card.dataset.description ?? '').includes(query)) &&
+        (!filters.type     || (card.dataset.type ?? '') === filters.type) &&
+        (!filters.public   || (card.dataset.public ?? '').includes(filters.public)) &&
+        (!filters.saison   || (card.dataset.saison ?? '') === filters.saison) &&
+        (!filters.ville    || (card.dataset.ville ?? '') === filters.ville) &&
+        (!filters.branche  || (card.dataset.branche ?? '') === filters.branche);
       card.style.display = matches ? '' : 'none';
       if (matches) visible++;
     });
     if (countEl) countEl.textContent = `${visible} activité${visible > 1 ? 's' : ''} trouvée${visible > 1 ? 's' : ''}`;
+    if (universSection) universSection.classList.toggle('hidden', searchInput.value.trim().length > 0);
   }
 
   document.querySelectorAll<HTMLButtonElement>('.chip').forEach((chip) => {
@@ -362,7 +367,21 @@ function getFallbackImg(nom: string, type: string): string {
     });
   });
 
-  searchInput?.addEventListener('input', applyFilters);
+  function clearBrancheFilter() {
+    if (filters.branche) {
+      filters.branche = '';
+      document.querySelectorAll<HTMLButtonElement>('.univers-card').forEach((c) => {
+        c.classList.remove('ring-2', 'ring-orange-400');
+        const overlay = c.querySelector<HTMLElement>('.univers-overlay');
+        if (overlay) overlay.style.backgroundColor = '';
+      });
+    }
+  }
+
+  searchInput?.addEventListener('input', () => {
+    clearBrancheFilter();
+    applyFilters();
+  });
 
   function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371;
@@ -440,6 +459,26 @@ function getFallbackImg(nom: string, type: string): string {
     );
   });
 
+  // Filtrage par branche (Nos univers)
+  document.querySelectorAll<HTMLButtonElement>('.univers-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      const slug = card.dataset.brancheFilter!;
+      const isActive = filters.branche === slug;
+      filters.branche = isActive ? '' : slug;
+      document.querySelectorAll<HTMLButtonElement>('.univers-card').forEach((c) => {
+        const active = c.dataset.brancheFilter === filters.branche;
+        c.classList.toggle('ring-2', active);
+        c.classList.toggle('ring-orange-400', active);
+        const overlay = c.querySelector<HTMLElement>('.univers-overlay');
+        if (overlay) overlay.style.backgroundColor = active ? 'rgba(249,115,22,0.25)' : '';
+      });
+      applyFilters();
+      if (!isActive) {
+        document.getElementById('cards-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+
   // Sticky search bar
   const stickyBar       = document.getElementById('sticky-bar') as HTMLElement;
   const stickyInput     = document.getElementById('sticky-search-input') as HTMLInputElement;
@@ -458,6 +497,7 @@ function getFallbackImg(nom: string, type: string): string {
 
   stickyInput?.addEventListener('input', () => {
     if (searchInput) searchInput.value = stickyInput.value;
+    clearBrancheFilter();
     applyFilters();
   });
   searchInput?.addEventListener('input', () => {
