@@ -102,7 +102,7 @@ function getFallbackImg(nom: string, type: string): string {
         </button>
       </div>
       <!-- Chips de filtre -->
-      <div class="flex flex-wrap sm:flex-nowrap gap-2 items-center pb-1 max-h-[72px] overflow-hidden sm:max-h-none sm:overflow-x-auto">
+      <div class="flex flex-nowrap gap-2 items-center pb-1 overflow-x-auto">
         {types.map((t) => (
           <button class="chip flex-shrink-0" data-filter="type" data-value={t.toLowerCase()}>
             {typeEmoji[t] ?? ''} {t}
@@ -219,8 +219,13 @@ function getFallbackImg(nom: string, type: string): string {
       </div>
     </section>
 
-    <!-- Compteur -->
-    <p id="count" class="text-gray-400 text-sm mb-5">
+    <!-- Compteur + bouton effacer -->
+    <div class="flex items-center gap-3 mb-5">
+      <p id="count" class="text-gray-400 text-sm"></p>
+      <button id="btn-clear-filters" class="hidden text-xs font-medium text-orange-500 hover:text-orange-600 underline underline-offset-2">
+        ✕ Effacer les filtres
+      </button>
+    </div>
       {total} activité{total > 1 ? 's' : ''} trouvée{total > 1 ? 's' : ''}
     </p>
 
@@ -332,8 +337,9 @@ function getFallbackImg(nom: string, type: string): string {
   const btnGeo      = document.getElementById('btn-geolocate') as HTMLButtonElement;
   const geoIcon     = document.getElementById('geo-icon') as SVGElement;
   const geoSpinner  = document.getElementById('geo-spinner') as SVGElement;
-  const grid          = document.getElementById('cards-grid') as HTMLElement;
-  const universSection = document.getElementById('univers-section') as HTMLElement;
+  const grid            = document.getElementById('cards-grid') as HTMLElement;
+  const universSection  = document.getElementById('univers-section') as HTMLElement;
+  const btnClear        = document.getElementById('btn-clear-filters') as HTMLButtonElement;
 
   const filters: Record<string, string> = { type: '', public: '', saison: '', ville: '', branche: '' };
 
@@ -353,6 +359,8 @@ function getFallbackImg(nom: string, type: string): string {
     });
     if (countEl) countEl.textContent = `${visible} activité${visible > 1 ? 's' : ''} trouvée${visible > 1 ? 's' : ''}`;
     if (universSection) universSection.classList.toggle('hidden', searchInput.value.trim().length > 0);
+    const hasActiveFilter = searchInput.value.trim().length > 0 || Object.values(filters).some(Boolean);
+    if (btnClear) btnClear.classList.toggle('hidden', !hasActiveFilter);
   }
 
   document.querySelectorAll<HTMLButtonElement>('.chip').forEach((chip) => {
@@ -365,6 +373,14 @@ function getFallbackImg(nom: string, type: string): string {
       });
       applyFilters();
     });
+  });
+
+  btnClear?.addEventListener('click', () => {
+    searchInput.value = '';
+    Object.keys(filters).forEach((k) => filters[k] = '');
+    document.querySelectorAll<HTMLButtonElement>('.chip').forEach((c) => c.classList.remove('active'));
+    clearBrancheFilter();
+    applyFilters();
   });
 
   function clearBrancheFilter() {
