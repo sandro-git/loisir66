@@ -29,10 +29,6 @@ export default defineConfig({
   image: {
     domains: ['cdn.sanity.io', 'images.unsplash.com'],
   },
-  // /activites (ancienne page non finie) a été supprimée : redirection permanente vers l'accueil.
-  redirects: {
-    '/activites': '/',
-  },
   output: 'server',
   adapter: netlify({
     edgeMiddleware: true,
