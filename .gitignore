@@ -3,3 +3,5 @@ node_modules/
 .env
 studio/.sanity/
 .netlify/
+test-results/
+playwright-report/
