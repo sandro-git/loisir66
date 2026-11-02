@@ -9,9 +9,9 @@
     "typegen": "sanity schema extract && sanity typegen generate"
   },
   "dependencies": {
-    "@sanity/vision": "^4.1.1",
-    "sanity": "^4.1.1",
-    "styled-components": "^6.4.0"
+    "@sanity/vision": "^4.22.1",
+    "sanity": "^4.22.1",
+    "styled-components": "^6.6.0"
   },
   "devDependencies": {
     "typescript": "^5"
