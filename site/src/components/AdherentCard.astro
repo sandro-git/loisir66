@@ -8,10 +8,24 @@ interface Props {
   slug?: string;
   // compat legacy
   activite?: string;
-  image?: string;
+  image?: string | { asset?: { _ref?: string } }; // URL (legacy) ou image Sanity
 }
 
+import { urlForImage } from '../lib/sanity.js';
+
 const { nom, type, public: pub, description, ville, slug, activite, image } = Astro.props;
+
+// Image Sanity → URL CDN recadrée ; une chaîne est utilisée telle quelle ; sinon pas d'image.
+let imageSrc: string | null = null;
+if (typeof image === 'string') {
+  imageSrc = image || null;
+} else if (image?.asset) {
+  try {
+    imageSrc = urlForImage(image)?.width(640).height(320).fit('crop').auto('format').url() ?? null;
+  } catch {
+    imageSrc = null;
+  }
+}
 ---
 
 <a
@@ -36,7 +50,7 @@ const { nom, type, public: pub, description, ville, slug, activite, image } = As
     )}
   </div>
 
-  {image && <img src={image} alt={nom} class="w-full rounded-lg object-cover h-40" />}
+  {imageSrc && <img src={imageSrc} alt={nom} loading="lazy" class="w-full rounded-lg object-cover h-40" />}
 
   <h2 class="text-xl font-bold text-white leading-snug">{nom}</h2>
 
