@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import { Image } from 'astro:assets';
 import { sanityClient, urlForImage } from '../lib/sanity.js';
+import { buildFilterOptions, getFallbackImg, toTitleCase } from '../lib/activites';
 
 const activites: any[] = sanityClient
   ? await sanityClient.fetch(
@@ -9,10 +10,7 @@ const activites: any[] = sanityClient
     ).catch(() => [])
   : [];
 
-const types   = [...new Set(activites.map((a) => a.type).filter(Boolean))].sort() as string[];
-const publics = [...new Set(activites.flatMap((a) => a.publics ?? []).filter(Boolean))] as string[];
-const saisons = [...new Set(activites.map((a) => a.saison).filter(Boolean))] as string[];
-const villes  = [...new Set(activites.map((a) => a.ville).filter(Boolean))].sort() as string[];
+const { types, publics, saisons, villes } = buildFilterOptions(activites);
 const total   = activites.length;
 
 const univers = [
@@ -26,53 +24,10 @@ const univers = [
   { nom: 'Jeux & Loisirs',      slug: 'jeux-loisirs',      img: 'https://images.unsplash.com/photo-1505765050516-f72dc741e925?auto=format&fit=crop&w=480&h=200&q=80' },
 ];
 
-function toTitleCase(str: string): string {
-  if (!str) return str;
-  return str.toLowerCase().replace(/(?:^|[\s\-\/])\S/g, (c) => c.toUpperCase());
-}
 
 const typeEmoji: Record<string, string> = { 'Outdoor': '🌿', 'Indoor': '🏠' };
 const saisonEmoji: Record<string, string> = { 'Été': '☀️', 'Hiver': '❄️', 'Toute saison': '🗓️' };
 
-function getFallbackImg(nom: string, type: string): string {
-  const n = nom.toLowerCase();
-  const q = '?auto=format&fit=crop&w=480&h=200&q=80';
-  const u = 'https://images.unsplash.com/photo-';
-  const checks: [string[], string][] = [
-    [['ski','neige','alpin','romeu','2000','snowboard','hiver','glisse'],       '1551698618-1dfe5d97d256'],
-    [['plongée','diving','aqua','snorkel','corail'],                            '1544551763-46a013bb70d5'],
-    [['nautique','voile','kayak','canoe','canoë','bateau','régate','surf'],      '1530053969600-caed2596d242'],
-    [['escalade','grimpe','via ferrata','bloc','varappe'],                      '1522163182402-834f871fd851'],
-    [['vélo','vtt','cyclisme','bmx','bike','cycle'],                            '1558618666-fcd25c85cd64'],
-    [['cheval','équi','horse','poney','ranch','polo'],                          '1553284965-83fd3e82fa5a'],
-    [['ferme','élevage','âne','poule','animaux de la'],                         '1500595046743-cd271d694d30'],
-    [['tortue','reptile','terrarium'],                                          '1548550804-f38e88d0e2f6'],
-    [['jardin','botanique','fleur','ariane','potager','plante'],                '1416879595882-3373a0480b5b'],
-    [['vin','wine','dégustation','cave','vigne','vendange'],                    '1506377247377-2a5b3b417ebb'],
-    [['children','paradise','enfant','kids','ludique','jeux','trampoline'],     '1566127444979-2707e8df55bb'],
-    [['yoga','pilates','méditation','zen','sophrologie','bien-être'],           '1544367567-0f2fcb009e0b'],
-    [['cuisine','gastro','cook','chef','pâtisserie','atelier culinaire'],       '1556909114-f6e7ad7d3136'],
-    [['randonnée','trek','rando','hiking','marche nordique'],                   '1483728642387-6c3bdd6c93e5'],
-    [['parc','acrobat','accro','tyrolienne','arbre','forêt','aventure'],        '1505765050516-f72dc741e925'],
-    [['laser','paintball','airsoft','escape','room'],                           '1612170153604-b7f7af55e94b'],
-    [['vr','réalité virtuelle','virtuel'],                                      '1617802690658-1173a812650d'],
-    [['karting','kart','circuit','moto'],                                       '1568772585407-9f3a8f8b4b4a'],
-    [['golf'],                                                                  '1537175467824-4c4e817c1bbe'],
-    [['tennis','padel','squash','badminton'],                                   '1554068865-24cecd4e34b8'],
-    [['musique','chant','concert','orchestre'],                                 '1511671001-8673-4aff-aea9-cd955b631f6b'],
-    [['photo','photographie'],                                                  '1516035069371-29a1b244cc32'],
-    [['musée','expo','patrimoine','château','visite'],                          '1554907984-15263bfd63bd'],
-    [['théâtre','spectacle','danse','ballet'],                                  '1507608168822-ecf2f7f7e8fd'],
-    [['pêche','fishing'],                                                       '1548438294-1ad5d5f4f063'],
-    [['spa','massage','bain','détente','thermal'],                              '1540555700478-4be289fbecef'],
-    [['peinture','dessin','art','poterie','céramique'],                         '1513364776144-60967b0f800f'],
-  ];
-  for (const [keywords, id] of checks) {
-    if (keywords.some(k => n.includes(k))) return u + id + q;
-  }
-  if (type === 'Indoor') return u + '1571019613454-1cb2f99b2d8b' + q;
-  return u + '1506905925346-21bda4d32df4' + q;
-}
 ---
 
 <Layout title="Loisirs 66 — Trouver une activité">
@@ -329,6 +284,8 @@ function getFallbackImg(nom: string, type: string): string {
 </style>
 
 <script>
+  import { countLabel, haversine, matchesFilters } from '../lib/activites';
+
   const searchInput = document.getElementById('search-input') as HTMLInputElement;
   const cards       = document.querySelectorAll<HTMLElement>('.activity-card');
   const countEl     = document.getElementById('count');
@@ -345,17 +302,11 @@ function getFallbackImg(nom: string, type: string): string {
     const query = searchInput.value.toLowerCase();
     let visible = 0;
     cards.forEach((card) => {
-      const matches =
-        (!query            || (card.dataset.nom ?? '').includes(query) || (card.dataset.description ?? '').includes(query)) &&
-        (!filters.type     || (card.dataset.type ?? '') === filters.type) &&
-        (!filters.public   || (card.dataset.public ?? '').includes(filters.public)) &&
-        (!filters.saison   || (card.dataset.saison ?? '') === filters.saison) &&
-        (!filters.ville    || (card.dataset.ville ?? '') === filters.ville) &&
-        (!filters.branche  || (card.dataset.branche ?? '') === filters.branche);
+      const matches = matchesFilters(card.dataset, query, filters);
       card.style.display = matches ? '' : 'none';
       if (matches) visible++;
     });
-    if (countEl) countEl.textContent = `${visible} activité${visible > 1 ? 's' : ''} trouvée${visible > 1 ? 's' : ''}`;
+    if (countEl) countEl.textContent = countLabel(visible);
     if (universSection) universSection.classList.toggle('hidden', searchInput.value.trim().length > 0);
     const hasActiveFilter = searchInput.value.trim().length > 0 || Object.values(filters).some(Boolean);
     if (btnClear) btnClear.classList.toggle('hidden', !hasActiveFilter);
@@ -397,13 +348,6 @@ function getFallbackImg(nom: string, type: string): string {
     applyFilters();
   });
 
-  function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
 
   const geocodeCache: Record<string, { lat: number; lng: number } | null> = {};
 
