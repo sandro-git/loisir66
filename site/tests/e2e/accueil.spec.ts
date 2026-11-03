@@ -98,6 +98,7 @@ test.describe('recherche', () => {
     await lien.click();
     await expect(page).toHaveURL(href!);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await page.waitForLoadState('load');
     await page.locator('#retour-bas').click();
     await expect(page).toHaveURL(/\/recherche\?type=indoor$/);
   });

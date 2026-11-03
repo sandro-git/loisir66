@@ -218,10 +218,12 @@ const ctaTexte = a.ctaTexte || 'Préparez votre visite directement auprès du pr
   import { formatDistance } from '../../lib/contenu';
 
   // « Retour aux résultats » renvoie vers la dernière recherche consultée.
-  try {
-    const derniere = sessionStorage.getItem('derniere-recherche');
-    if (derniere) document.querySelectorAll<HTMLAnchorElement>('#retour-haut, #retour-bas').forEach((l) => (l.href = derniere));
-  } catch {}
+  const derniereRecherche = () => { try { return sessionStorage.getItem('derniere-recherche'); } catch { return null; } };
+  document.querySelectorAll<HTMLAnchorElement>('#retour-haut, #retour-bas').forEach((lien) => {
+    const url = derniereRecherche();
+    if (url) lien.href = url;
+    lien.addEventListener('click', () => { const u = derniereRecherche(); if (u) lien.href = u; });
+  });
 
   // Distance : seulement si le visiteur a déjà partagé sa position (bouton « autour de moi »).
   const el = document.getElementById('distance');
