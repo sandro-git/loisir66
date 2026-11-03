@@ -1,140 +1,250 @@
 ---
-import Layout from '../../layouts/Layout.astro';
+import Site from '../../layouts/Site.astro';
+import Icone from '../../components/Icone.astro';
+import Carrousel from '../../components/Carrousel.astro';
+import CarteActivite from '../../components/CarteActivite.astro';
 import { sanityClient, urlForImage } from '../../lib/sanity.js';
+import { getFallbackImg } from '../../lib/activites';
+import {
+  FICHE_QUERY, PROCHES_GEO_QUERY, PROCHES_TERRITOIRE_QUERY, SIMILAIRES_QUERY,
+  labelPublic, lignesAdresse, nomLisible, periodesOuverture, photoPrincipale, urlItineraire,
+} from '../../lib/contenu';
 
 const { slug } = Astro.params;
-
-const query = `*[_type == "adherent" && slug.current == $slug][0]{
-  nom, slug, soustitre, type, publics, saison,
-  description, ville, adresse, horaires, tarifs, siteWeb, image
-}`;
-
-const a = sanityClient
-  ? await sanityClient.fetch(query, { slug }).catch(() => null)
-  : null;
-
+const a: any = sanityClient ? await sanityClient.fetch(FICHE_QUERY, { slug }).catch(() => null) : null;
 if (!a) return Astro.redirect('/');
 
-const initiales = (a.nom as string)
-  .split(' ')
-  .slice(0, 2)
-  .map((w: string) => w[0])
-  .join('')
-  .toUpperCase();
+const geo = a.localisation?.lat != null ? a.localisation : null;
+const [similaires, proches]: any[][] = sanityClient
+  ? await Promise.all([
+      a.brancheId ? sanityClient.fetch(SIMILAIRES_QUERY, { branche: a.brancheId, id: a._id }).catch(() => []) : [],
+      geo
+        ? sanityClient.fetch(PROCHES_GEO_QUERY, { id: a._id, point: { _type: 'geopoint', lat: geo.lat, lng: geo.lng } }).catch(() => [])
+        : a.territoireId
+          ? sanityClient.fetch(PROCHES_TERRITOIRE_QUERY, { id: a._id, territoire: a.territoireId, branche: a.brancheId ?? '' }).catch(() => [])
+          : [],
+    ])
+  : [[], []];
+// « À proximité » ne répète pas les fiches déjà proposées dans « À découvrir aussi ».
+const dejaVus = new Set(similaires.map((s) => s._id));
+const autour = proches.filter((p) => !dejaVus.has(p._id));
 
-const imageUrl = a.image ? urlForImage(a.image)?.width(120).height(120).fit('crop').url() : null;
+const nom = nomLisible(a.nom);
+const ville = a.ville ? nomLisible(a.ville) : null;
+const categorie = a.soustitre || a.branche?.titre?.trim();
+
+const photos = [photoPrincipale(a), ...(a.galerie ?? [])].filter((p) => p?.asset);
+const photoUrl = (p: any, w: number, h: number) => urlForImage(p)?.width(w).height(h).fit('crop').auto('format').url();
+const repli = getFallbackImg(a.nom ?? '', a.type ?? '').replace('w=480&h=200', 'w=1200&h=1000');
+
+const publics: string[] = (a.publics ?? []).map(labelPublic);
+const groupes: string[] = a.groupes ?? [];
+const periodes = periodesOuverture(a.periodes, a.saison);
+const iconeSaison: Record<string, string> = { Printemps: 'printemps', 'Été': 'ete', Automne: 'automne', Hiver: 'hiver' };
+const adresse = lignesAdresse(a.adresse);
+const itineraire = urlItineraire({ adresse: a.adresse, ville: a.ville, lat: geo?.lat, lng: geo?.lng });
+const ctaTitre = a.ctaTitre || 'Envie d’y aller ?';
+const ctaTexte = a.ctaTexte || 'Préparez votre visite directement auprès du professionnel.';
 ---
 
-<Layout title={`${a.nom} — Loisirs 66`}>
-  <main class="max-w-3xl mx-auto px-4 py-8 space-y-4">
-
-    <!-- Header -->
-    <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-6">
-      <div class="flex items-start gap-5">
-
-        <!-- Avatar -->
-        <div class="flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-orange-100 flex items-center justify-center">
-          {imageUrl
-            ? <img src={imageUrl} alt={a.nom} class="w-full h-full object-cover" />
-            : <span class="text-orange-600 text-2xl font-bold">{initiales}</span>
-          }
-        </div>
-
-        <!-- Infos principales -->
-        <div class="flex-1 min-w-0">
-          <div class="flex flex-wrap items-center gap-2 mb-1">
-            <h1 class="text-2xl font-bold text-gray-900">{a.nom}</h1>
-            {a.type && (
-              <span class={`text-xs font-medium px-3 py-1 rounded-full ${
-                a.type === 'Outdoor'
-                  ? 'bg-green-100 text-green-700 border border-green-300'
-                  : 'bg-sky-100 text-sky-700 border border-sky-300'
-              }`}>{a.type}</span>
+<Site title={`${nom} — Loisirs 66`} description={a.accroche || a.description?.slice(0, 155) || `${nom}, adhérent APLPO dans les Pyrénées-Orientales.`}>
+  <article>
+    <!-- Photo(s) -->
+    <div class="mx-auto max-w-6xl px-6 sm:px-8">
+      <div class="relative overflow-hidden rounded-t-[2rem] border-b-[12px] border-corail bg-bleu-fonce">
+        <div class="relative aspect-[4/5] sm:aspect-[16/9] lg:aspect-[21/9]" data-galerie>
+          <div class="defilant h-full gap-0" data-piste>
+            {photos.length ? photos.map((p, i) => (
+              <picture class="relative h-full w-full">
+                <source media="(min-width: 640px)" srcset={photoUrl(p, 1800, 800)} />
+                <img src={photoUrl(p, 900, 1125)} alt={p.alt ?? (i === 0 ? nom : '')} width="900" height="1125" class="h-full w-full object-cover"
+                  loading={i === 0 ? 'eager' : 'lazy'} fetchpriority={i === 0 ? 'high' : 'auto'} />
+              </picture>
+            )) : (
+              <img src={repli} alt="" width="1200" height="1000" class="h-full w-full object-cover" fetchpriority="high" />
             )}
-            <span class="text-xs font-medium px-3 py-1 rounded-full border border-gray-200 text-gray-600">
-              Adhérent APLPO
-            </span>
           </div>
-          {(a.soustitre || a.ville) && (
-            <p class="text-gray-600">
-              {a.soustitre}{a.soustitre && a.ville ? ' — ' : ''}{a.ville}
-            </p>
-          )}
+          <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60"></div>
+          <a href="/recherche" id="retour-haut" class="absolute left-6 top-6 inline-flex items-center gap-3 rounded-full bg-white px-6 py-3.5 font-medium shadow-sm hover:bg-sable sm:left-8 sm:top-8">
+            <Icone nom="gauche" class="h-5 w-5" /> Retour aux résultats
+          </a>
+          <div class="pointer-events-none absolute inset-x-0 bottom-0 px-8 pb-10 sm:px-12">
+            {categorie && <span class="inline-block rounded-full bg-corail px-5 py-2 text-sm font-medium text-encre">{categorie}</span>}
+            <h1 class="mt-5 max-w-2xl text-4xl font-bold leading-tight text-white sm:text-5xl">{nom}</h1>
+          </div>
         </div>
       </div>
+      {photos.length > 1 && (
+        <div class="mt-6 flex justify-center gap-4" data-points>
+          {photos.map((_, i) => (
+            <button type="button" class={`h-2.5 rounded-full transition-all ${i === 0 ? 'w-10 bg-corail' : 'w-2.5 bg-trait'}`} aria-label={`Photo ${i + 1}`} data-index={i}></button>
+          ))}
+        </div>
+      )}
     </div>
 
-    <!-- Corps -->
-    <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-6">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-
-        <!-- Colonne gauche -->
-        <div class="space-y-6">
-          {a.description && (
-            <div>
-              <p class="text-xs text-gray-400 uppercase tracking-widest mb-3">Description</p>
-              <p class="text-gray-700 leading-relaxed">{a.description}</p>
-            </div>
+    <div class="mx-auto max-w-3xl px-6 sm:px-8">
+      <!-- Lieu + site -->
+      {(ville || a.siteWeb) && (
+        <div class="border-b border-trait py-8">
+          {ville && (
+            <p class="flex items-center gap-3 text-lg">
+              <Icone nom="carte" class="h-6 w-6 text-bleu" />
+              <span class="font-medium">{ville}</span>
+              <span id="distance" class="hidden text-gris" data-lat={geo?.lat} data-lng={geo?.lng} data-ville={a.ville}></span>
+            </p>
           )}
-
-          {a.publics?.length > 0 && (
-            <div>
-              <p class="text-xs text-gray-400 uppercase tracking-widest mb-3">Public</p>
-              <div class="flex flex-wrap gap-2">
-                {(a.publics as string[]).map((p) => (
-                  <span class="text-sm px-3 py-1 rounded-full border border-gray-200 text-gray-600">{p}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <!-- Colonne droite -->
-        <div class="space-y-6">
-          {(a.adresse || a.horaires || a.tarifs) && (
-            <div>
-              <p class="text-xs text-gray-400 uppercase tracking-widest mb-3">Infos pratiques</p>
-              <dl class="space-y-3">
-                {a.adresse && (
-                  <div class="grid grid-cols-2 gap-2">
-                    <dt class="text-gray-500 text-sm">Adresse</dt>
-                    <dd class="text-gray-700 text-sm">{a.adresse}</dd>
-                  </div>
-                )}
-                {a.horaires && (
-                  <div class="grid grid-cols-2 gap-2">
-                    <dt class="text-gray-500 text-sm">Horaires</dt>
-                    <dd class="text-gray-700 text-sm">{a.horaires}</dd>
-                  </div>
-                )}
-                {a.tarifs && (
-                  <div class="grid grid-cols-2 gap-2">
-                    <dt class="text-gray-500 text-sm">Tarifs</dt>
-                    <dd class="text-gray-700 text-sm">{a.tarifs}</dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-          )}
-
           {a.siteWeb && (
-            <a
-              href={a.siteWeb}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="block w-full text-center border border-sky-400 text-sky-600 rounded-xl py-3 text-sm font-medium hover:bg-sky-50 transition-colors"
-            >
-              Voir le site web
+            <a href={a.siteWeb} target="_blank" rel="noopener noreferrer" class="lien-souligne mt-5">
+              Voir le site du professionnel <Icone nom="externe" class="h-5 w-5" />
             </a>
           )}
         </div>
-      </div>
+      )}
+
+      <!-- Présentation -->
+      {(a.accroche || a.description) && (
+        <section class="py-10">
+          {a.surtitre && <p class="surtitre">{a.surtitre}</p>}
+          {a.accroche && <h2 class="mt-4 text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">{a.accroche}</h2>}
+          {a.description && <p class="mt-6 whitespace-pre-line text-lg leading-loose text-gris">{a.description}</p>}
+        </section>
+      )}
+
+      {a.activites?.length > 0 && (
+        <section class="border-b border-trait pb-10">
+          <p class="surtitre">À vivre sur place</p>
+          <h2 class="mt-3 text-2xl font-semibold sm:text-3xl">Activités proposées</h2>
+          <ul class="mt-6 space-y-4 text-lg">
+            {a.activites.map((x: string) => (
+              <li class="flex items-start gap-3"><Icone nom="coche" class="mt-1 h-5 w-5 shrink-0 text-bleu" /> {x}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {(publics.length > 0 || groupes.length > 0) && (
+        <section class="border-b border-trait py-10">
+          {publics.length > 0 && (
+            <>
+              <p class="surtitre">Pour qui ?</p>
+              <h2 class="mt-3 text-2xl font-semibold sm:text-3xl">À partager ensemble</h2>
+              <ul class="mt-6 flex flex-wrap gap-3">{publics.map((p) => <li class="pastille">{p}</li>)}</ul>
+            </>
+          )}
+          {groupes.length > 0 && (
+            <div class={publics.length ? 'mt-10' : ''}>
+              <p class="surtitre">Venir à plusieurs</p>
+              <h2 class="mt-3 text-2xl font-semibold sm:text-3xl">Groupes bienvenus</h2>
+              <ul class="mt-6 flex flex-wrap gap-3">{groupes.map((g) => <li class="pastille">{g}</li>)}</ul>
+            </div>
+          )}
+        </section>
+      )}
+
+      {(periodes.length > 0 || a.horaires || a.tarifs) && (
+        <section class="py-10">
+          {periodes.length > 0 && (
+            <>
+              <h2 class="text-xl font-semibold">Périodes d’ouverture</h2>
+              <ul class="mt-5 flex gap-6 text-bleu">
+                {periodes.map((p) => (
+                  <li title={p}><Icone nom={iconeSaison[p]} class="h-9 w-9" /><span class="sr-only">{p}</span></li>
+                ))}
+              </ul>
+            </>
+          )}
+          {(a.horaires || a.tarifs) && (
+            <dl class="mt-8 grid gap-4 sm:grid-cols-2">
+              {a.horaires && <div><dt class="text-sm text-gris">Horaires</dt><dd class="mt-1 font-medium">{a.horaires}</dd></div>}
+              {a.tarifs && <div><dt class="text-sm text-gris">Tarifs</dt><dd class="mt-1 font-medium">{a.tarifs}</dd></div>}
+            </dl>
+          )}
+        </section>
+      )}
+
+      {(adresse.length > 0 || itineraire) && (
+        <section class="rounded-3xl bg-sable p-8 sm:p-10">
+          <p class="surtitre">Informations pratiques</p>
+          <div class="mt-6 flex gap-5">
+            <Icone nom="repere" class="mt-9 h-6 w-6 shrink-0 text-bleu" />
+            <div>
+              <h3 class="text-lg font-medium">Le lieu de votre activité</h3>
+              <address class="mt-3 text-lg not-italic leading-relaxed text-gris">
+                {adresse.length ? adresse.map((l) => <>{l}<br /></>) : ville}
+              </address>
+            </div>
+          </div>
+          {itineraire && (
+            <a href={itineraire} target="_blank" rel="noopener noreferrer" class="mt-8 inline-flex items-center gap-4 rounded-xl border border-bleu bg-white px-8 py-4 font-medium hover:bg-bleu hover:text-white">
+              Préparer mon itinéraire <Icone nom="externe" class="h-5 w-5" />
+            </a>
+          )}
+        </section>
+      )}
+
+      {a.siteWeb && (
+        <section class="py-12">
+          <h2 class="text-2xl font-semibold sm:text-3xl">{ctaTitre}</h2>
+          <p class="mt-3 text-lg text-gris">{ctaTexte}</p>
+          <a href={a.siteWeb} target="_blank" rel="noopener noreferrer" class="mt-8 flex items-center justify-center gap-3 rounded-xl bg-corail px-5 py-5 text-center font-medium sm:text-lg text-encre hover:bg-corail-fonce hover:text-white">
+            Découvrir le site du professionnel <Icone nom="externe" class="h-5 w-5" />
+          </a>
+        </section>
+      )}
     </div>
+  </article>
 
-    <!-- Retour -->
-    <a href="/" class="inline-block text-gray-500 text-sm hover:text-orange-500 transition-colors">
-      ← Retour aux activités
-    </a>
+  {similaires.length > 0 && (
+    <Carrousel id="decouvrir-aussi" surtitre="Prolongez la découverte" titre="À découvrir aussi"
+      intro={categorie ? `D’autres ${categorie.toLocaleLowerCase('fr')} à explorer.` : 'D’autres activités à explorer.'} fond="sable">
+      {similaires.map((s) => <CarteActivite a={s} class="w-[82%] sm:w-[45%] lg:w-[31%]" />)}
+    </Carrousel>
+  )}
 
-  </main>
-</Layout>
+  {autour.length > 0 && (
+    <Carrousel id="a-proximite" surtitre="Continuez l’exploration" titre="À proximité" intro={`Autour de ${ville ?? nom}.`}>
+      {autour.map((s) => <CarteActivite a={s} class="w-[82%] sm:w-[45%] lg:w-[31%]" />)}
+    </Carrousel>
+  )}
+
+  <div class="flex justify-center px-6 pb-16 pt-6">
+    <a href="/recherche" id="retour-bas" class="rounded-xl border border-bleu px-10 py-5 font-medium hover:bg-bleu hover:text-white">← Retour aux résultats</a>
+  </div>
+</Site>
+
+<script>
+  import { haversine } from '../../lib/activites';
+  import { formatDistance } from '../../lib/contenu';
+
+  // « Retour aux résultats » renvoie vers la dernière recherche consultée.
+  try {
+    const derniere = sessionStorage.getItem('derniere-recherche');
+    if (derniere) document.querySelectorAll<HTMLAnchorElement>('#retour-haut, #retour-bas').forEach((l) => (l.href = derniere));
+  } catch {}
+
+  // Distance : seulement si le visiteur a déjà partagé sa position (bouton « autour de moi »).
+  const el = document.getElementById('distance');
+  try {
+    const pos = JSON.parse(sessionStorage.getItem('position') ?? 'null');
+    if (el && pos && el.dataset.lat) {
+      el.textContent = `· ${formatDistance(haversine(pos.lat, pos.lng, Number(el.dataset.lat), Number(el.dataset.lng)))}`;
+      el.classList.remove('hidden');
+    }
+  } catch {}
+
+  // Points du carrousel photo.
+  const piste = document.querySelector<HTMLElement>('[data-galerie] [data-piste]');
+  const points = [...document.querySelectorAll<HTMLButtonElement>('[data-points] button')];
+  if (piste && points.length) {
+    const maj = () => {
+      const i = Math.round(piste.scrollLeft / piste.clientWidth);
+      points.forEach((p, j) => {
+        p.classList.toggle('w-10', i === j); p.classList.toggle('bg-corail', i === j);
+        p.classList.toggle('w-2.5', i !== j); p.classList.toggle('bg-trait', i !== j);
+      });
+    };
+    piste.addEventListener('scroll', maj, { passive: true });
+    points.forEach((p) => p.addEventListener('click', () => piste.scrollTo({ left: Number(p.dataset.index) * piste.clientWidth, behavior: 'smooth' })));
+  }
+</script>

@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('une fiche inconnue renvoie vers l’accueil', async ({ page }) => {
   await page.goto('/loisirs66/cette-fiche-n-existe-pas');
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'Trouvez une activité' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Découvrez les loisirs du 66');
 });
 
 test('la page /activites a été supprimée (404)', async ({ request }) => {
@@ -31,11 +31,13 @@ for (const protegee of ['/mon-profil', '/admin']) {
   });
 }
 
-test('aucune erreur JavaScript sur l’accueil', async ({ page }) => {
-  const erreurs: string[] = [];
-  page.on('pageerror', (e) => erreurs.push(e.message));
-  await page.goto('/');
-  await page.locator('#search-input').fill('parc');
-  await page.locator('#search-input').fill('');
-  expect(erreurs).toEqual([]);
-});
+for (const url of ['/', '/recherche', '/loisirs66/parc-animalier-de-casteil']) {
+  test(`aucune erreur JavaScript sur ${url}`, async ({ page }) => {
+    const erreurs: string[] = [];
+    page.on('pageerror', (e) => erreurs.push(e.message));
+    await page.goto(url);
+    await page.mouse.wheel(0, 3000);
+    await page.waitForTimeout(300);
+    expect(erreurs).toEqual([]);
+  });
+}

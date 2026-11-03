@@ -1,0 +1,52 @@
+---
+import Icone from './Icone.astro';
+---
+<header class="relative z-40">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5 sm:px-8">
+    <a href="/" class="block" aria-label="APLPO — Loisirs 66, accueil">
+      <img src="/logo-aplpo.avif" alt="APLPO — Loisirs 66" width="182" height="172" class="h-16 w-auto sm:h-20" fetchpriority="high" />
+    </a>
+    <nav class="hidden items-center gap-8 text-sm font-medium md:flex" aria-label="Navigation principale">
+      <a href="/#univers" class="hover:text-bleu-fonce">Nos univers</a>
+      <a href="/#territoires" class="hover:text-bleu-fonce">Nos territoires</a>
+      <a href="/recherche" class="hover:text-bleu-fonce">Toutes les activités</a>
+      <a href="/connexion" class="rounded-full border border-trait px-4 py-2 hover:border-bleu hover:text-bleu-fonce">Espace adhérent</a>
+    </nav>
+    <button id="btn-menu" type="button" class="-mr-2 p-2 text-bleu md:hidden" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="menu-mobile">
+      <Icone nom="menu" class="h-8 w-8" />
+    </button>
+  </div>
+
+  <div id="menu-mobile" class="fixed inset-0 z-50 hidden flex-col bg-white px-6 py-5 md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+    <div class="flex items-center justify-between">
+      <img src="/logo-aplpo.avif" alt="" width="182" height="172" class="h-16 w-auto" />
+      <button id="btn-menu-fermer" type="button" class="-mr-2 p-2 text-bleu" aria-label="Fermer le menu">
+        <Icone nom="fermer" class="h-8 w-8" />
+      </button>
+    </div>
+    <nav class="mt-10 flex flex-col gap-6 text-2xl font-semibold" aria-label="Navigation principale">
+      <a href="/">Accueil</a>
+      <a href="/#univers" data-ferme-menu>Nos univers</a>
+      <a href="/#territoires" data-ferme-menu>Nos territoires</a>
+      <a href="/recherche">Toutes les activités</a>
+      <a href="/connexion" class="text-lg font-medium text-bleu-fonce">Espace adhérent</a>
+    </nav>
+  </div>
+</header>
+
+<script>
+  const menu = document.getElementById('menu-mobile')!;
+  const ouvrir = document.getElementById('btn-menu')!;
+  const fermer = document.getElementById('btn-menu-fermer')!;
+  function basculer(ouvert: boolean) {
+    menu.classList.toggle('hidden', !ouvert);
+    menu.classList.toggle('flex', ouvert);
+    ouvrir.setAttribute('aria-expanded', String(ouvert));
+    document.body.style.overflow = ouvert ? 'hidden' : '';
+    (ouvert ? fermer : ouvrir).focus();
+  }
+  ouvrir.addEventListener('click', () => basculer(true));
+  fermer.addEventListener('click', () => basculer(false));
+  menu.querySelectorAll('[data-ferme-menu]').forEach((a) => a.addEventListener('click', () => basculer(false)));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.classList.contains('hidden')) basculer(false); });
+</script>

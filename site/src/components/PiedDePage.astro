@@ -1,0 +1,109 @@
+---
+import Icone from './Icone.astro';
+import { sanityClient } from '../lib/sanity.js';
+import { urlRecherche } from '../lib/contenu';
+
+const c: any = sanityClient
+  ? await sanityClient.fetch(`*[_id == "accueil"][0]{ instagram, facebook, linkedin, email, telephone }`).catch(() => null)
+  : null;
+const email = c?.email || 'contact.aplpo@gmail.com';
+const telephone = c?.telephone || '06 11 97 86 07';
+const reseaux = [
+  { nom: 'instagram', label: 'Instagram', url: c?.instagram },
+  { nom: 'facebook', label: 'Facebook', url: c?.facebook },
+  { nom: 'linkedin', label: 'LinkedIn', url: c?.linkedin },
+].filter((r) => r.url);
+---
+<footer class="bg-bleu text-white">
+  <div class="mx-auto max-w-6xl px-6 py-14 sm:px-8">
+    <div class="grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-3">
+      <div>
+        <h2 class="text-lg font-semibold sm:text-xl">Explorer le 66</h2>
+        <ul class="mt-5 space-y-3 text-[15px] text-white/95 sm:text-base">
+          <li><a href="/#univers" class="hover:underline">Nos univers</a></li>
+          <li><a href="/#territoires" class="hover:underline">Nos territoires</a></li>
+          <li><a href={urlRecherche({ public: 'famille' })} class="hover:underline">En famille</a></li>
+          <li><a href={urlRecherche({ type: 'outdoor' })} class="hover:underline">Activités de plein air</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="text-lg font-semibold sm:text-xl">L’association</h2>
+        <ul class="mt-5 space-y-3 break-words text-[15px] text-white/95 sm:text-base">
+          <li>
+            <a href="/connexion" class="hover:underline">Espace adhérent</a>
+            <span aria-hidden="true"> · </span>
+            <a href={`mailto:${email}?subject=${encodeURIComponent('Rejoindre l’APLPO')}`} class="hover:underline">Nous rejoindre</a>
+          </li>
+          <li><a href={`mailto:${email}`} class="hover:underline">{email}</a></li>
+          <li><a href={`tel:${telephone.replace(/\s/g, '')}`} class="hover:underline">{telephone}</a></li>
+        </ul>
+        {reseaux.length > 0 && (
+          <>
+            <h2 class="mt-8 text-xl font-semibold">Nous suivre</h2>
+            <ul class="mt-4 flex gap-6">
+              {reseaux.map((r) => (
+                <li><a href={r.url} target="_blank" rel="noopener noreferrer" aria-label={r.label} class="block hover:opacity-80"><Icone nom={r.nom} class="h-9 w-9" /></a></li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+
+      <form id="form-promos" name="promos" method="POST" action="/__forms.html" class="col-span-2 lg:col-span-1">
+        <input type="hidden" name="form-name" value="promos" />
+        <p class="hidden"><label>Ne pas remplir : <input name="bot-field" tabindex="-1" autocomplete="off" /></label></p>
+        <h2 class="text-xl font-semibold">Recevoir mes promos par e-mail</h2>
+        <div class="mt-5 grid grid-cols-2 gap-3">
+          <label class="sr-only" for="promo-code">Votre code promo</label>
+          <input id="promo-code" name="code" type="text" required placeholder="Votre code promo" autocomplete="off"
+            class="w-full min-w-0 rounded-xl bg-white px-4 py-3.5 text-encre placeholder:text-gris outline-none focus:ring-2 focus:ring-corail" />
+          <label class="sr-only" for="promo-email">Votre e-mail</label>
+          <input id="promo-email" name="email" type="email" required placeholder="Votre e-mail" autocomplete="email"
+            class="w-full min-w-0 rounded-xl bg-white px-4 py-3.5 text-encre placeholder:text-gris outline-none focus:ring-2 focus:ring-corail" />
+        </div>
+        <label class="mt-4 flex items-start gap-3 text-white/95">
+          <input name="consentement" type="checkbox" value="oui" required class="mt-1 h-5 w-5 shrink-0 accent-corail" />
+          <span>J’accepte l’utilisation de mon e-mail pour recevoir les offres associées à mon code.</span>
+        </label>
+        <button type="submit" class="mt-6 rounded-xl bg-corail px-7 py-4 font-medium text-encre transition-colors hover:bg-corail-fonce hover:text-white">
+          Recevoir mes offres →
+        </button>
+        <p id="promos-message" class="mt-4 hidden font-medium" role="status"></p>
+      </form>
+    </div>
+
+    <div class="mt-12 border-t border-white/30 pt-8 text-sm">
+      <ul class="flex flex-wrap gap-x-8 gap-y-3">
+        <li><a href="/mentions-legales" class="hover:underline">Mentions légales</a></li>
+        <li><a href="/confidentialite" class="hover:underline">Politique de confidentialité</a></li>
+        <li><a href="/cookies" class="hover:underline">Politique de cookies</a></li>
+      </ul>
+      <p class="mt-6">© APLPO – Activités et Loisirs 66</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Envoi à Netlify Forms sans quitter la page (le formulaire statique de référence est public/__forms.html).
+  const form = document.getElementById('form-promos') as HTMLFormElement | null;
+  const message = document.getElementById('promos-message');
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const bouton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    bouton.disabled = true;
+    try {
+      const res = await fetch('/__forms.html', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(new FormData(form) as any).toString(),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      form.reset();
+      if (message) { message.textContent = 'Merci ! Vos offres arrivent bientôt dans votre boîte mail.'; message.classList.remove('hidden'); }
+    } catch {
+      if (message) { message.textContent = 'L’envoi a échoué, merci de réessayer.'; message.classList.remove('hidden'); }
+    } finally {
+      bouton.disabled = false;
+    }
+  });
+</script>

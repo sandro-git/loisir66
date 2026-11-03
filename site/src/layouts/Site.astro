@@ -1,0 +1,16 @@
+---
+// Gabarit des pages publiques (en-tête + pied de page de la charte APLPO).
+import Layout from './Layout.astro';
+import Entete from '../components/Entete.astro';
+import PiedDePage from '../components/PiedDePage.astro';
+interface Props { title?: string; description?: string; }
+const { title, description } = Astro.props;
+---
+<Layout title={title} description={description} bodyClass="bg-white text-encre">
+  <slot name="head" slot="head" />
+  <Entete />
+  <main>
+    <slot />
+  </main>
+  <PiedDePage />
+</Layout>

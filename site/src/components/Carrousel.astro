@@ -1,0 +1,45 @@
+---
+// Rangée de cartes défilante avec flèches (flèches masquées s'il n'y a rien à faire défiler).
+import Icone from './Icone.astro';
+interface Props { id: string; surtitre?: string; titre: string; intro?: string; fond?: 'blanc' | 'sable'; }
+const { id, surtitre, titre, intro, fond = 'blanc' } = Astro.props;
+---
+<section id={id} class={fond === 'sable' ? 'bg-sable' : ''} data-carrousel>
+  <div class="mx-auto max-w-6xl px-6 py-14 sm:px-8">
+    <div class="flex items-end justify-between gap-4">
+      <div>
+        {surtitre && <p class="surtitre">{surtitre}</p>}
+        <h2 class="titre-section mt-3">{titre}</h2>
+        {intro && <p class="mt-3 text-gris">{intro}</p>}
+      </div>
+      <div class="flex shrink-0 gap-2" data-fleches>
+        <button type="button" class="bouton-fleche" data-precedent aria-label="Précédent"><Icone nom="gauche" /></button>
+        <button type="button" class="bouton-fleche" data-suivant aria-label="Suivant"><Icone nom="droite" /></button>
+      </div>
+    </div>
+    <div class="defilant -mx-6 mt-8 scroll-px-6 px-6 pb-2 sm:-mx-8 sm:scroll-px-8 sm:px-8" data-piste>
+      <slot />
+    </div>
+    <slot name="apres" />
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-carrousel]').forEach((bloc) => {
+    const piste = bloc.querySelector<HTMLElement>('[data-piste]')!;
+    const prec = bloc.querySelector<HTMLButtonElement>('[data-precedent]')!;
+    const suiv = bloc.querySelector<HTMLButtonElement>('[data-suivant]')!;
+    const pas = () => (piste.firstElementChild as HTMLElement | null)?.getBoundingClientRect().width ?? piste.clientWidth;
+    const maj = () => {
+      const max = piste.scrollWidth - piste.clientWidth - 2;
+      bloc.querySelector<HTMLElement>('[data-fleches]')!.style.visibility = max > 0 ? '' : 'hidden';
+      prec.disabled = piste.scrollLeft <= 2;
+      suiv.disabled = piste.scrollLeft >= max;
+    };
+    prec.addEventListener('click', () => piste.scrollBy({ left: -pas() - 16, behavior: 'smooth' }));
+    suiv.addEventListener('click', () => piste.scrollBy({ left: pas() + 16, behavior: 'smooth' }));
+    piste.addEventListener('scroll', maj, { passive: true });
+    window.addEventListener('resize', maj);
+    maj();
+  });
+</script>

@@ -1,475 +1,184 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import { Image } from 'astro:assets';
+import Site from '../layouts/Site.astro';
+import Icone from '../components/Icone.astro';
+import Carrousel from '../components/Carrousel.astro';
 import { sanityClient, urlForImage } from '../lib/sanity.js';
-import { buildFilterOptions, getFallbackImg, toTitleCase } from '../lib/activites';
+import { ACCUEIL_QUERY, RACCOURCIS, urlRecherche } from '../lib/contenu';
 
-const activites: any[] = sanityClient
-  ? await sanityClient.fetch(
-      `*[_type == "adherent"] | order(nom asc) { nom, "slug": slug.current, type, publics, saison, description, ville, image, "branche": branche->slug.current }`
-    ).catch(() => [])
-  : [];
+const data: any = sanityClient ? await sanityClient.fetch(ACCUEIL_QUERY).catch(() => null) : null;
+const accueil = data?.accueil ?? {};
+const univers: any[] = data?.univers ?? [];
+const territoires: any[] = data?.territoires ?? [];
 
-const { types, publics, saisons, villes } = buildFilterOptions(activites);
-const total   = activites.length;
+const img = (source: any, w: number, h: number) =>
+  source?.asset ? urlForImage(source)?.width(w).height(h).fit('crop').auto('format').url() : null;
 
-const univers = [
-  { nom: 'Nature & Randonnée',  slug: 'nature-randonnee',  img: 'https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Sports & Aventure',   slug: 'sports-aventure',   img: 'https://images.unsplash.com/photo-1522163182402-834f871fd851?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Bien-être',           slug: 'bien-etre',         img: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Gastronomie',         slug: 'gastronomie',       img: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Visites & Culture',   slug: 'visites-culture',   img: 'https://images.unsplash.com/photo-1554907984-15263bfd63bd?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Ateliers',            slug: 'ateliers',          img: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Aquatique',           slug: 'aquatique',         img: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=480&h=200&q=80' },
-  { nom: 'Jeux & Loisirs',      slug: 'jeux-loisirs',      img: 'https://images.unsplash.com/photo-1505765050516-f72dc741e925?auto=format&fit=crop&w=480&h=200&q=80' },
-];
-
-
-const typeEmoji: Record<string, string> = { 'Outdoor': '🌿', 'Indoor': '🏠' };
-const saisonEmoji: Record<string, string> = { 'Été': '☀️', 'Hiver': '❄️', 'Toute saison': '🗓️' };
-
+const slides = (accueil.slides ?? []).filter((s: any) => s?.asset);
+const instagramPhotos = (accueil.instagramPhotos ?? []).filter((s: any) => s?.asset);
+const heroTitre = accueil.heroTitre || 'Découvrez les loisirs du 66,';
+const heroSousTitre = accueil.heroSousTitre || 'directement auprès des professionnels d’ici.';
 ---
 
-<Layout title="Loisirs 66 — Trouver une activité">
-
-  <!-- Barre de recherche sticky (apparaît quand le hero sort du viewport) -->
-  <div id="sticky-bar" class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md shadow-md -translate-y-full transition-transform duration-300 pointer-events-none">
-    <div class="max-w-6xl mx-auto px-4 pt-3 pb-2">
-      <!-- Ligne recherche + géo -->
-      <div class="flex gap-2 mb-2">
-        <input
-          id="sticky-search-input"
-          type="search"
-          placeholder="Escalade, karting, plongée..."
-          autocomplete="off"
-          class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-300 text-sm"
-        />
-        <button
-          id="sticky-btn-geo"
-          title="Activités proches de moi"
-          class="flex-shrink-0 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-500 hover:text-orange-500 transition-colors outline-none"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="3"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-            <circle cx="12" cy="12" r="8" stroke-dasharray="4 2"/>
-          </svg>
-        </button>
-      </div>
-      <!-- Chips de filtre -->
-      <div class="flex flex-nowrap gap-2 items-center pb-1 overflow-x-auto">
-        {types.map((t) => (
-          <button class="chip flex-shrink-0" data-filter="type" data-value={t.toLowerCase()}>
-            {typeEmoji[t] ?? ''} {t}
-          </button>
+<Site title="Loisirs 66 — Découvrez les loisirs des Pyrénées-Orientales" description="Activités et loisirs dans les Pyrénées-Orientales, directement auprès des professionnels adhérents de l’APLPO.">
+  <!-- Bandeau principal -->
+  <section class="mx-auto max-w-6xl px-6 sm:px-8" aria-label="À la une">
+    <div class="relative overflow-hidden rounded-t-[2rem] border-b-[12px] border-corail bg-bleu-fonce" data-hero>
+      <div class="relative aspect-[4/5] sm:aspect-[16/10] lg:aspect-[21/9]">
+        {slides.map((s: any, i: number) => (
+          <picture>
+            <source media="(min-width: 640px)" srcset={img(s, 1800, 900)} />
+            <img src={img(s, 900, 1100)} alt={s.alt ?? ''} width="900" height="1100"
+              class={`hero-slide absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${i === 0 ? 'opacity-100' : 'opacity-0'}`}
+              loading={i === 0 ? 'eager' : 'lazy'} fetchpriority={i === 0 ? 'high' : 'auto'} />
+          </picture>
         ))}
-        <div class="w-px h-5 bg-gray-200 mx-0.5 flex-shrink-0"></div>
-        {publics.map((p) => (
-          <button class="chip flex-shrink-0" data-filter="public" data-value={p.toLowerCase()}>{p}</button>
-        ))}
-        <div class="w-px h-5 bg-gray-200 mx-0.5 flex-shrink-0"></div>
-        {saisons.map((s) => (
-          <button class="chip flex-shrink-0" data-filter="saison" data-value={s.toLowerCase()}>
-            {saisonEmoji[s] ?? ''} {s}
-          </button>
-        ))}
-        {villes.length > 0 && (
-          <>
-            <div class="w-px h-5 bg-gray-200 mx-0.5 flex-shrink-0"></div>
-            {villes.map((v) => (
-              <button class="chip flex-shrink-0" data-filter="ville" data-value={v.toLowerCase()}>
-                📍 {toTitleCase(v)}
-              </button>
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/60"></div>
+        <div class="absolute inset-x-0 bottom-0 px-8 pb-20 sm:px-12 sm:pb-24">
+          <h1 class="max-w-xl text-5xl font-semibold leading-[1.05] tracking-tight text-white sm:text-6xl">{heroTitre}</h1>
+          <p class="mt-5 max-w-md text-xl leading-relaxed text-white sm:text-2xl">{heroSousTitre}</p>
+        </div>
+        {slides.length > 1 && (
+          <div class="absolute inset-x-0 bottom-7 flex justify-center gap-4" role="tablist" aria-label="Choisir une photo">
+            {slides.map((_: any, i: number) => (
+              <button type="button" class={`hero-point h-2.5 rounded-full transition-all ${i === 0 ? 'w-10 bg-corail' : 'w-2.5 bg-white/70'}`}
+                aria-label={`Photo ${i + 1}`} aria-selected={i === 0 ? 'true' : 'false'} role="tab" data-index={i}></button>
             ))}
-          </>
+          </div>
         )}
       </div>
     </div>
-  </div>
 
-  <main class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Recherche -->
+    <form action="/recherche" method="get" class="relative z-10 mx-auto mt-8 flex max-w-3xl items-center gap-1.5 rounded-2xl border border-trait bg-white p-2 pl-3.5 shadow-sm sm:gap-3 sm:p-2.5 sm:pl-5" role="search">
+      <Icone nom="loupe" class="h-5 w-5 shrink-0 text-bleu sm:h-6 sm:w-6" />
+      <label for="recherche-accueil" class="sr-only">Quelle activité vous tente ?</label>
+      <input id="recherche-accueil" name="q" type="search" placeholder="Quelle activité vous tente ?" autocomplete="off"
+        class="min-w-0 flex-1 bg-transparent py-3 text-sm text-encre placeholder:text-gris outline-none sm:text-lg" />
+      <span class="h-9 w-px bg-trait" aria-hidden="true"></span>
+      <button type="button" id="btn-autour" class="p-1.5 text-bleu hover:text-bleu-fonce sm:p-2" title="Activités autour de moi" aria-label="Activités autour de moi">
+        <Icone nom="cible" class="h-6 w-6 sm:h-7 sm:w-7" />
+      </button>
+      <button type="submit" class="flex h-12 w-12 shrink-0 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-corail text-encre hover:bg-corail-fonce hover:text-white" aria-label="Rechercher">
+        <Icone nom="droite" class="h-6 w-6" />
+      </button>
+    </form>
+  </section>
 
-    <!-- Logo -->
-    <div class="flex justify-center mb-6">
-      <img src="/logo-aplpo.avif" alt="APLPO — Loisirs 66" class="w-1/2 sm:w-auto sm:h-16" loading="eager" fetchpriority="high" />
-    </div>
-
-    <!-- Hero -->
-    <div data-hero class="relative rounded-3xl overflow-hidden mb-6 bg-gradient-to-br from-orange-400 via-rose-300 to-sky-400 p-8 md:p-12">
-      <div class="absolute -top-24 -right-24 w-80 h-80 bg-white/20 rounded-full blur-3xl pointer-events-none"></div>
-      <div class="absolute -bottom-24 -left-24 w-80 h-80 bg-white/20 rounded-full blur-3xl pointer-events-none"></div>
-      <div class="relative z-10">
-        <p class="text-white/80 text-xs uppercase tracking-widest mb-3 text-center">Pyrénées-Orientales</p>
-        <h1 class="text-white text-3xl md:text-4xl font-bold mb-2 leading-tight text-center">
-          Trouvez une activité
-        </h1>
-        <p class="text-white/75 mb-7 text-sm text-center">{total} activités à découvrir dans le 66</p>
-        <div class="flex gap-2">
-          <input
-            id="search-input"
-            type="search"
-            placeholder="Escalade, karting, plongée..."
-            autocomplete="off"
-            class="flex-1 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:bg-white transition-colors"
-          />
-          <button
-            id="btn-geolocate"
-            title="Activités proches de moi"
-            class="flex-shrink-0 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-3 text-gray-500 hover:text-orange-500 hover:bg-white transition-colors outline-none"
-          >
-            <svg id="geo-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="3"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-              <circle cx="12" cy="12" r="8" stroke-dasharray="4 2"/>
-            </svg>
-            <svg id="geo-spinner" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2a10 10 0 0 1 10 10"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Filtres en chips — cachés sur mobile -->
-    <div class="hidden sm:flex flex-wrap gap-2 mb-5 items-center">
-      {types.map((t) => (
-        <button class="chip" data-filter="type" data-value={t.toLowerCase()}>
-          {typeEmoji[t] ?? ''} {t}
-        </button>
+  <!-- Raccourcis -->
+  <nav class="mx-auto mt-8 max-w-6xl sm:px-8" aria-label="Raccourcis">
+    <ul class="defilant scroll-px-6 bg-corail px-6 py-5 sm:rounded-2xl sm:px-8 lg:justify-center">
+      {RACCOURCIS.map((r) => (
+        <li><a href={urlRecherche(r.params)} class="block whitespace-nowrap rounded-full border border-encre/30 px-5 py-3 text-[15px] font-medium text-encre transition-colors hover:bg-white/30">{r.label}</a></li>
       ))}
-      <div class="w-px h-5 bg-gray-200 mx-1"></div>
-      {publics.map((p) => (
-        <button class="chip" data-filter="public" data-value={p.toLowerCase()}>{p}</button>
-      ))}
-      <div class="w-px h-5 bg-gray-200 mx-1"></div>
-      {saisons.map((s) => (
-        <button class="chip" data-filter="saison" data-value={s.toLowerCase()}>
-          {saisonEmoji[s] ?? ''} {s}
-        </button>
-      ))}
-      {villes.length > 0 && (
-        <>
-          <div class="w-px h-5 bg-gray-200 mx-1"></div>
-          {villes.map((v) => (
-            <button class="chip" data-filter="ville" data-value={v.toLowerCase()}>
-              📍 {toTitleCase(v)}
-            </button>
-          ))}
-        </>
-      )}
-    </div>
+    </ul>
+  </nav>
 
-    <!-- Nos univers -->
-    <section id="univers-section" class="mb-8">
-      <h2 class="text-xl font-bold text-gray-900 mb-4">Nos univers</h2>
-      <div class="grid grid-cols-2 gap-3">
-        {univers.map((u, i) => (
-          <button class="univers-card relative rounded-2xl overflow-hidden h-28 group block w-full text-left" data-branche-filter={u.slug}>
-            <Image src={u.img} alt={u.nom} width={480} height={200} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none" loading={i < 6 ? 'eager' : 'lazy'} />
-            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none"></div>
-            <div class="univers-overlay absolute inset-0 bg-orange-500/0 transition-colors duration-200 pointer-events-none"></div>
-            <span class="absolute bottom-3 left-3 right-3 text-white font-bold text-sm leading-tight pointer-events-none">{u.nom}</span>
-          </button>
+  <!-- Nos univers -->
+  {univers.length > 0 && (
+    <section id="univers" class="mx-auto max-w-6xl scroll-mt-6 px-6 py-16 sm:px-8">
+      <p class="surtitre">À chacun ses envies</p>
+      <h2 class="titre-section mt-3">Nos univers</h2>
+      <p class="mt-4 max-w-sm text-lg leading-relaxed text-gris">Des idées pour s’évader, partager et profiter du 66.</p>
+      <ul class="mt-10 grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
+        {univers.map((u) => (
+          <li>
+            <a href={urlRecherche({ univers: u.slug })} class="group flex h-full flex-col overflow-hidden rounded-3xl border border-trait bg-white shadow-sm transition-shadow hover:shadow-md">
+              <div class="aspect-[6/5] overflow-hidden border-b-4 border-corail bg-sable">
+                {img(u.image, 640, 540) && <img src={img(u.image, 640, 540)} alt="" loading="lazy" decoding="async" width="640" height="540" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />}
+              </div>
+              <div class="flex flex-1 items-start justify-between gap-2 p-4 pb-8 sm:gap-3 sm:p-6 sm:pb-10">
+                <h3 class="min-w-0 text-[15px] font-semibold leading-snug [hyphens:none] sm:text-xl">{u.titre}</h3>
+                <Icone nom="externe" class="mt-0.5 h-5 w-5 shrink-0 text-bleu" />
+              </div>
+            </a>
+          </li>
         ))}
+      </ul>
+    </section>
+  )}
+
+  <!-- Nos territoires -->
+  {territoires.length > 0 && (
+    <section id="territoires" class="scroll-mt-6 sm:px-8">
+      <div class="mx-auto max-w-6xl bg-sable px-6 py-16 sm:rounded-3xl sm:px-8">
+        <p class="surtitre">Des Pyrénées à la Méditerranée</p>
+        <h2 class="titre-section mt-3">Nos territoires</h2>
+        <p class="mt-4 text-lg text-gris">Quatre façons de changer d’air.</p>
+        <ul class="mt-10 grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
+          {territoires.map((t) => (
+            <li>
+              <a href={urlRecherche({ territoire: t.slug })} class="group relative block aspect-[7/8] overflow-hidden rounded-3xl bg-bleu-fonce shadow-sm">
+                {img(t.image, 600, 690) && <img src={img(t.image, 600, 690)} alt="" loading="lazy" decoding="async" width="600" height="690" class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />}
+                <div class="absolute inset-0 bg-gradient-to-b from-transparent from-40% to-black/70"></div>
+                <div class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-4 sm:p-6">
+                  <h3 class="min-w-0 text-lg font-bold leading-tight text-white sm:text-2xl">{t.titre}</h3>
+                  <Icone nom="externe" class="h-5 w-5 shrink-0 text-white sm:h-6 sm:w-6" />
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
+  )}
 
-    <!-- Compteur + bouton effacer -->
-    <div class="flex items-center gap-3 mb-5">
-      <p id="count" class="text-gray-400 text-sm"></p>
-      <button id="btn-clear-filters" class="hidden text-xs font-medium text-orange-500 hover:text-orange-600 underline underline-offset-2">
-        ✕ Effacer les filtres
-      </button>
-    </div>
-
-    <!-- Grille de cartes -->
-    <div id="cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-      {activites?.map((a, i) => {
-        const imgUrl = a.image ? urlForImage(a.image)?.width(480).height(200).fit('crop').url() : null;
-        const eager = false;
+  <!-- Instagram -->
+  {instagramPhotos.length > 0 && (
+    <Carrousel id="instagram" surtitre="Les loisirs se partagent" titre="Vos loisirs sur Instagram">
+      {instagramPhotos.map((p: any) => {
+        const contenu = <img src={img(p, 640, 620)} alt={p.alt ?? ''} loading="lazy" decoding="async" width="640" height="620" class="h-full w-full object-cover" />;
         return (
-          <a
-            href={a.slug ? `/loisirs66/${a.slug}` : '#'}
-            class="activity-card group bg-white border border-gray-100 shadow-sm rounded-2xl overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all no-underline"
-            data-nom={(a.nom ?? '').toLowerCase()}
-            data-description={(a.description ?? '').toLowerCase()}
-            data-type={(a.type ?? '').toLowerCase()}
-            data-public={(a.publics ?? []).join(',').toLowerCase()}
-            data-saison={(a.saison ?? '').toLowerCase()}
-            data-ville={(a.ville ?? '').toLowerCase()}
-            data-branche={(a.branche ?? '').toLowerCase()}
-          >
-            <div class="h-36 overflow-hidden flex-shrink-0 relative">
-              {imgUrl ? (
-                <Image
-                  src={imgUrl}
-                  alt={a.nom ?? ''}
-                  width={480}
-                  height={200}
-                  loading={eager ? 'eager' : 'lazy'}
-                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              ) : (
-                <>
-                  <Image
-                    src={getFallbackImg(a.nom ?? '', a.type ?? '')}
-                    alt={a.nom ?? ''}
-                    width={480}
-                    height={200}
-                    loading={eager ? 'eager' : 'lazy'}
-                    class="fallback-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div class={`fallback-gradient hidden absolute inset-0 w-full h-full flex items-center justify-center ${
-                    a.type === 'Outdoor'
-                      ? 'bg-gradient-to-br from-green-300 via-emerald-400 to-teal-500'
-                      : 'bg-gradient-to-br from-sky-300 via-blue-400 to-indigo-500'
-                  }`}>
-                    <span class="text-white/25 text-7xl font-black select-none">
-                      {(a.nom ?? '').charAt(0)}
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-            <div class="p-5 flex flex-col gap-2 flex-1">
-              <div class="flex gap-1.5 flex-wrap">
-                {a.type && (
-                  <span class={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                    a.type === 'Outdoor' ? 'bg-green-100 text-green-700' : 'bg-sky-100 text-sky-700'
-                  }`}>
-                    {typeEmoji[a.type] ?? ''} {a.type}
-                  </span>
-                )}
-                {(a.publics ?? []).map((p: string) => (
-                  <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">{p}</span>
-                ))}
-              </div>
-              <h2 class="text-base font-bold text-gray-900 leading-snug">{toTitleCase(a.nom ?? '')}</h2>
-              {a.description && (
-                <p class="text-gray-500 text-sm leading-relaxed line-clamp-2">{a.description}</p>
-              )}
-              {a.ville && (
-                <p class="text-gray-400 text-xs mt-auto flex items-center gap-1">
-                  <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  </svg>
-                  {toTitleCase(a.ville)}
-                  <span class="distance-badge hidden text-orange-500 font-medium"></span>
-                </p>
-              )}
-            </div>
-          </a>
+          <div class="aspect-[32/31] w-[78%] overflow-hidden rounded-3xl sm:w-[45%] lg:w-[31%]">
+            {p.lien || accueil.instagram ? <a href={p.lien || accueil.instagram} target="_blank" rel="noopener noreferrer" class="block h-full">{contenu}</a> : contenu}
+          </div>
         );
       })}
-    </div>
-
-  </main>
-</Layout>
-
-<style is:global>
-  .chip {
-    padding: 0.375rem 0.875rem;
-    border-radius: 9999px;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    background: #f3f4f6;
-    color: #6b7280;
-    cursor: pointer;
-    transition: background-color 0.15s, color 0.15s, border-color 0.15s;
-    border: 1.5px solid transparent;
-  }
-  .chip:hover { background: #e5e7eb; color: #374151; }
-  .chip.active { background: #fff7ed; color: #ea580c; border-color: #fdba74; }
-</style>
+      {accueil.instagram && (
+        <a slot="apres" href={accueil.instagram} target="_blank" rel="noopener noreferrer" class="lien-souligne mt-10 text-lg">
+          <Icone nom="instagram" class="h-7 w-7 text-encre" />
+          Retrouvez-nous sur Instagram
+          <Icone nom="externe" class="h-5 w-5" />
+        </a>
+      )}
+    </Carrousel>
+  )}
+</Site>
 
 <script>
-  import { countLabel, haversine, matchesFilters } from '../lib/activites';
-
-  const searchInput = document.getElementById('search-input') as HTMLInputElement;
-  const cards       = document.querySelectorAll<HTMLElement>('.activity-card');
-  const countEl     = document.getElementById('count');
-  const btnGeo      = document.getElementById('btn-geolocate') as HTMLButtonElement;
-  const geoIcon     = document.getElementById('geo-icon') as SVGElement;
-  const geoSpinner  = document.getElementById('geo-spinner') as SVGElement;
-  const grid            = document.getElementById('cards-grid') as HTMLElement;
-  const universSection  = document.getElementById('univers-section') as HTMLElement;
-  const btnClear        = document.getElementById('btn-clear-filters') as HTMLButtonElement;
-
-  const filters: Record<string, string> = { type: '', public: '', saison: '', ville: '', branche: '' };
-
-  function applyFilters() {
-    const query = searchInput.value.toLowerCase();
-    let visible = 0;
-    cards.forEach((card) => {
-      const matches = matchesFilters(card.dataset, query, filters);
-      card.style.display = matches ? '' : 'none';
-      if (matches) visible++;
+  // Carrousel du bandeau : défilement automatique (sauf si l'utilisateur préfère moins d'animations) + points.
+  const slides = [...document.querySelectorAll<HTMLElement>('.hero-slide')];
+  const points = [...document.querySelectorAll<HTMLButtonElement>('.hero-point')];
+  let courant = 0;
+  let minuteur: number | undefined;
+  function montrer(i: number) {
+    courant = (i + slides.length) % slides.length;
+    slides.forEach((s, j) => { s.classList.toggle('opacity-100', j === courant); s.classList.toggle('opacity-0', j !== courant); });
+    points.forEach((p, j) => {
+      const actif = j === courant;
+      p.classList.toggle('w-10', actif); p.classList.toggle('bg-corail', actif);
+      p.classList.toggle('w-2.5', !actif); p.classList.toggle('bg-white/70', !actif);
+      p.setAttribute('aria-selected', String(actif));
     });
-    if (countEl) countEl.textContent = countLabel(visible);
-    if (universSection) universSection.classList.toggle('hidden', searchInput.value.trim().length > 0);
-    const hasActiveFilter = searchInput.value.trim().length > 0 || Object.values(filters).some(Boolean);
-    if (btnClear) btnClear.classList.toggle('hidden', !hasActiveFilter);
   }
-
-  document.querySelectorAll<HTMLButtonElement>('.chip').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      const filter = chip.dataset.filter!;
-      const value  = chip.dataset.value!;
-      filters[filter] = filters[filter] === value ? '' : value;
-      document.querySelectorAll<HTMLButtonElement>(`.chip[data-filter="${filter}"]`).forEach((c) => {
-        c.classList.toggle('active', c.dataset.value === filters[filter]);
-      });
-      applyFilters();
-    });
-  });
-
-  btnClear?.addEventListener('click', () => {
-    searchInput.value = '';
-    Object.keys(filters).forEach((k) => filters[k] = '');
-    document.querySelectorAll<HTMLButtonElement>('.chip').forEach((c) => c.classList.remove('active'));
-    clearBrancheFilter();
-    applyFilters();
-  });
-
-  function clearBrancheFilter() {
-    if (filters.branche) {
-      filters.branche = '';
-      document.querySelectorAll<HTMLButtonElement>('.univers-card').forEach((c) => {
-        c.classList.remove('ring-2', 'ring-orange-400');
-        const overlay = c.querySelector<HTMLElement>('.univers-overlay');
-        if (overlay) overlay.style.backgroundColor = '';
-      });
-    }
+  function demarrer() {
+    if (slides.length < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    clearInterval(minuteur);
+    minuteur = window.setInterval(() => montrer(courant + 1), 6000);
   }
+  points.forEach((p) => p.addEventListener('click', () => { montrer(Number(p.dataset.index)); demarrer(); }));
+  demarrer();
 
-  searchInput?.addEventListener('input', () => {
-    clearBrancheFilter();
-    applyFilters();
-  });
-
-
-  const geocodeCache: Record<string, { lat: number; lng: number } | null> = {};
-
-  async function geocodeVille(ville: string): Promise<{ lat: number; lng: number } | null> {
-    if (ville in geocodeCache) return geocodeCache[ville];
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(ville + ', Pyrénées-Orientales, France')}&format=json&limit=1&addressdetails=0`,
-        { headers: { 'Accept-Language': 'fr', 'User-Agent': 'loisirs66-app/1.0' } }
-      );
-      const data = await res.json();
-      const result = data[0] ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } : null;
-      geocodeCache[ville] = result;
-      await new Promise((r) => setTimeout(r, 1100));
-      return result;
-    } catch (e) {
-      console.error('Geocode error:', ville, e);
-      geocodeCache[ville] = null;
-      return null;
-    }
-  }
-
-  async function geocodeSequential(villes: string[]) { for (const v of villes) await geocodeVille(v); }
-
-  function setGeoLoading(loading: boolean) {
-    btnGeo.disabled = loading;
-    geoIcon.classList.toggle('hidden', loading);
-    geoSpinner.classList.toggle('hidden', !loading);
-  }
-
-  function resetGeo() {
-    document.querySelectorAll<HTMLElement>('.distance-badge').forEach((el) => { el.textContent = ''; el.classList.add('hidden'); });
-    [...cards].sort((a, b) => (a.dataset.nom ?? '').localeCompare(b.dataset.nom ?? '')).forEach((c) => grid.appendChild(c));
-    btnGeo.classList.remove('text-orange-500');
-    btnGeo.classList.add('text-gray-500');
-    if (universSection) universSection.classList.remove('hidden');
-  }
-
-  let geoActive = false;
-
-  btnGeo?.addEventListener('click', async () => {
-    if (geoActive) { geoActive = false; resetGeo(); return; }
-    if (!navigator.geolocation) { alert("La géolocalisation n'est pas supportée."); return; }
-    setGeoLoading(true);
+  // « Autour de moi » : on mémorise la position puis on ouvre la recherche triée par distance.
+  document.getElementById('btn-autour')?.addEventListener('click', () => {
+    if (!navigator.geolocation) { location.href = '/recherche'; return; }
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude: userLat, longitude: userLng } = pos.coords;
-        const uniqueVilles = new Set<string>();
-        cards.forEach((c) => { if (c.dataset.ville) uniqueVilles.add(c.dataset.ville); });
-        await geocodeSequential([...uniqueVilles]);
-        cards.forEach((card) => {
-          const coords = geocodeCache[card.dataset.ville ?? ''];
-          if (coords) {
-            const dist = haversine(userLat, userLng, coords.lat, coords.lng);
-            card.dataset.distanceKm = dist.toFixed(1);
-            const badge = card.querySelector<HTMLElement>('.distance-badge');
-            if (badge) { badge.textContent = `· ${dist < 1 ? '< 1' : Math.round(dist)} km`; badge.classList.remove('hidden'); }
-          } else { card.dataset.distanceKm = '99999'; }
-        });
-        [...cards].sort((a, b) => parseFloat(a.dataset.distanceKm ?? '99999') - parseFloat(b.dataset.distanceKm ?? '99999')).forEach((c) => grid.appendChild(c));
-        geoActive = true;
-        btnGeo.classList.remove('text-gray-500');
-        btnGeo.classList.add('text-orange-500');
-        if (universSection) universSection.classList.add('hidden');
-        setGeoLoading(false);
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try { sessionStorage.setItem('position', JSON.stringify({ lat: latitude, lng: longitude })); } catch {}
+        location.href = '/recherche?autour=1';
       },
-      (err) => { setGeoLoading(false); if (err.code !== err.PERMISSION_DENIED) alert("Impossible d'obtenir votre position."); },
+      () => { location.href = '/recherche'; },
       { timeout: 10000 }
     );
-  });
-
-  // Filtrage par branche (Nos univers)
-  document.querySelectorAll<HTMLButtonElement>('.univers-card').forEach((card) => {
-    card.addEventListener('click', () => {
-      const slug = card.dataset.brancheFilter!;
-      const isActive = filters.branche === slug;
-      filters.branche = isActive ? '' : slug;
-      document.querySelectorAll<HTMLButtonElement>('.univers-card').forEach((c) => {
-        const active = c.dataset.brancheFilter === filters.branche;
-        c.classList.toggle('ring-2', active);
-        c.classList.toggle('ring-orange-400', active);
-        const overlay = c.querySelector<HTMLElement>('.univers-overlay');
-        if (overlay) overlay.style.backgroundColor = active ? 'rgba(249,115,22,0.25)' : '';
-      });
-      applyFilters();
-      if (!isActive) {
-        document.getElementById('cards-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    });
-  });
-
-  // Sticky search bar
-  const stickyBar       = document.getElementById('sticky-bar') as HTMLElement;
-  const stickyInput     = document.getElementById('sticky-search-input') as HTMLInputElement;
-  const stickyBtnGeo    = document.getElementById('sticky-btn-geo') as HTMLButtonElement;
-  const hero            = document.querySelector('[data-hero]') as HTMLElement;
-
-  const heroObserver = new IntersectionObserver(
-    ([entry]) => {
-      const hidden = entry.isIntersecting;
-      stickyBar.classList.toggle('-translate-y-full', hidden);
-      stickyBar.classList.toggle('pointer-events-none', hidden);
-    },
-    { threshold: 0 }
-  );
-  if (hero) heroObserver.observe(hero);
-
-  stickyInput?.addEventListener('input', () => {
-    if (searchInput) searchInput.value = stickyInput.value;
-    clearBrancheFilter();
-    applyFilters();
-  });
-  searchInput?.addEventListener('input', () => {
-    if (stickyInput) stickyInput.value = searchInput.value;
-  });
-  stickyBtnGeo?.addEventListener('click', () => btnGeo?.click());
-
-  // Fallback gradient si l'image Unsplash ne charge pas
-  document.querySelectorAll<HTMLImageElement>('.fallback-img').forEach(img => {
-    img.addEventListener('error', function () {
-      this.classList.add('hidden');
-      (this.nextElementSibling as HTMLElement)?.classList.remove('hidden');
-    });
   });
 </script>

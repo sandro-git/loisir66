@@ -1,0 +1,170 @@
+---
+import Site from '../layouts/Site.astro';
+import Icone from '../components/Icone.astro';
+import CarteActivite from '../components/CarteActivite.astro';
+import { sanityClient } from '../lib/sanity.js';
+import { CARTE_FIELDS, basculerCritere, filtrerActivites, labelPublic, lireCriteres } from '../lib/contenu';
+
+const criteres = lireCriteres(Astro.url.searchParams);
+
+const data: any = sanityClient
+  ? await sanityClient.fetch(`{
+      "activites": *[_type == "adherent"] | order(nom asc) { ${CARTE_FIELDS} },
+      "univers": *[_type == "univers"] | order(ordre asc, titre asc) { titre, "slug": slug.current, "branches": branches[]->slug.current },
+      "territoires": *[_type == "territoire"] | order(ordre asc, titre asc) { titre, "slug": slug.current }
+    }`).catch(() => null)
+  : null;
+const toutes: any[] = data?.activites ?? [];
+const univers: any[] = data?.univers ?? [];
+const territoires: any[] = data?.territoires ?? [];
+const brancheParUnivers = Object.fromEntries(univers.map((u) => [u.slug, u.branches ?? []]));
+
+const resultats = filtrerActivites(toutes, criteres, brancheParUnivers);
+
+const titre =
+  univers.find((u) => u.slug === criteres.univers)?.titre ??
+  territoires.find((t) => t.slug === criteres.territoire)?.titre ??
+  (criteres.q ? `« ${criteres.q} »` : 'Toutes les activités');
+
+const publics = ['Famille', 'Enfants', 'Amis', 'Adultes'];
+const filtres = [
+  { cle: 'univers' as const, label: 'Univers', options: univers.map((u) => ({ valeur: u.slug, label: u.titre })) },
+  { cle: 'territoire' as const, label: 'Territoire', options: territoires.map((t) => ({ valeur: t.slug, label: t.titre })) },
+  { cle: 'public' as const, label: 'Pour qui ?', options: publics.map((p) => ({ valeur: p.toLowerCase(), label: labelPublic(p) })) },
+  { cle: 'type' as const, label: 'Lieu', options: [{ valeur: 'indoor', label: 'En intérieur' }, { valeur: 'outdoor', label: 'En plein air' }] },
+  { cle: 'groupe' as const, label: 'Groupes', options: [{ valeur: 'scolaires', label: 'Scolaires' }, { valeur: 'groupes & entreprises', label: 'Groupes & entreprises' }] },
+  { cle: 'ambiance' as const, label: 'Ambiance', options: [{ valeur: 'sensations', label: 'Sensations' }] },
+].filter((f) => f.options.length > 0);
+
+const actifs = Object.keys(criteres).length > 0;
+const pluriel = resultats.length > 1 ? 's' : '';
+---
+
+<Site title={`${titre.replace(/[«»]/g, '').trim()} — Loisirs 66`} description="Trouvez une activité de loisirs dans les Pyrénées-Orientales.">
+  <section class="mx-auto max-w-6xl px-6 pb-6 pt-4 sm:px-8">
+    <p class="surtitre">Trouver une activité</p>
+    <h1 class="titre-section mt-3">{titre}</h1>
+
+    <form action="/recherche" method="get" class="mt-8 flex items-center gap-3 rounded-2xl border border-trait bg-white p-2.5 pl-5 shadow-sm" role="search">
+      {Object.entries(criteres).filter(([k]) => k !== 'q').map(([k, v]) => <input type="hidden" name={k} value={v} />)}
+      <Icone nom="loupe" class="h-6 w-6 shrink-0 text-bleu" />
+      <label for="search-input" class="sr-only">Quelle activité vous tente ?</label>
+      <input id="search-input" name="q" type="search" value={criteres.q ?? ''} placeholder="Quelle activité vous tente ?" autocomplete="off"
+        class="min-w-0 flex-1 bg-transparent py-3 text-lg text-encre placeholder:text-gris outline-none" />
+      <span class="h-10 w-px bg-trait" aria-hidden="true"></span>
+      <button type="button" id="btn-geolocate" class="p-2 text-bleu hover:text-bleu-fonce" title="Trier par distance" aria-label="Trier par distance" aria-pressed="false">
+        <Icone nom="cible" class="h-7 w-7" />
+      </button>
+      <button type="submit" class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-corail text-encre hover:bg-corail-fonce hover:text-white" aria-label="Rechercher">
+        <Icone nom="droite" class="h-6 w-6" />
+      </button>
+    </form>
+
+    <div class="mt-8 space-y-4">
+      {filtres.map((f) => (
+        <div class="flex items-center gap-3">
+          <span class="w-24 shrink-0 text-xs font-semibold uppercase tracking-widest text-gris">{f.label}</span>
+          <ul class="defilant -mr-6 gap-2 pr-6 sm:mr-0 sm:flex-wrap sm:pr-0">
+            {f.options.map((o) => {
+              const actif = (criteres[f.cle] ?? '').toLowerCase() === o.valeur.toLowerCase();
+              return (
+                <li>
+                  <a href={basculerCritere(criteres, f.cle, o.valeur)} data-filter={f.cle} data-value={o.valeur}
+                    aria-current={actif ? 'true' : undefined}
+                    class={`chip block whitespace-nowrap rounded-full border px-4 py-2 text-sm transition-colors ${actif ? 'active border-corail bg-corail text-encre' : 'border-trait bg-white text-encre hover:border-bleu'}`}>
+                    {o.label}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+
+    <div class="mt-8 flex items-center gap-4">
+      <p id="count" class="text-gris">{resultats.length} activité{pluriel} trouvée{pluriel}</p>
+      {actifs && <a id="btn-clear-filters" href="/recherche" class="text-sm font-medium text-bleu-fonce underline underline-offset-4">Effacer les filtres</a>}
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-6xl px-6 pb-20 sm:px-8" aria-label="Résultats">
+    {resultats.length === 0 ? (
+      <div class="rounded-3xl bg-sable p-10 text-center">
+        <p class="text-lg font-medium">Aucune activité ne correspond à ces critères.</p>
+        <a href="/recherche" class="lien-souligne mt-6">Voir toutes les activités</a>
+      </div>
+    ) : (
+      <ul id="cards-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {resultats.map((a) => (
+          <li class="activity-card flex" data-nom={(a.nom ?? '').toLowerCase()} data-ville={a.ville ?? ''}
+            data-lat={a.localisation?.lat} data-lng={a.localisation?.lng}>
+            <CarteActivite a={a} class="w-full" />
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+</Site>
+
+<script>
+  import { formatDistance } from '../lib/contenu';
+  import { haversine } from '../lib/activites';
+
+  const grid = document.getElementById('cards-grid');
+  const cards = [...document.querySelectorAll<HTMLElement>('.activity-card')];
+  const btnGeo = document.getElementById('btn-geolocate') as HTMLButtonElement;
+
+  // Mémorise l'origine de la recherche pour le bouton « Retour aux résultats » des fiches.
+  try { sessionStorage.setItem('derniere-recherche', location.pathname + location.search); } catch {}
+
+  const cache: Record<string, { lat: number; lng: number } | null> = {};
+  async function geocoder(ville: string) {
+    if (ville in cache) return cache[ville];
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(ville + ', Pyrénées-Orientales, France')}&format=json&limit=1`, { headers: { 'Accept-Language': 'fr' } });
+      const d = await res.json();
+      cache[ville] = d[0] ? { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon) } : null;
+      await new Promise((r) => setTimeout(r, 1100)); // politique d'usage de Nominatim : 1 requête / s
+    } catch { cache[ville] = null; }
+    return cache[ville];
+  }
+
+  async function trierParDistance(pos: { lat: number; lng: number }) {
+    btnGeo.disabled = true;
+    for (const card of cards) {
+      let coords = card.dataset.lat ? { lat: Number(card.dataset.lat), lng: Number(card.dataset.lng) } : null;
+      if (!coords && card.dataset.ville) coords = await geocoder(card.dataset.ville);
+      const km = coords ? haversine(pos.lat, pos.lng, coords.lat, coords.lng) : Infinity;
+      card.dataset.distanceKm = String(km);
+      const badge = card.querySelector<HTMLElement>('.distance');
+      if (badge && Number.isFinite(km)) { badge.textContent = `· ${formatDistance(km)}`; badge.classList.remove('hidden'); }
+    }
+    cards.sort((a, b) => Number(a.dataset.distanceKm) - Number(b.dataset.distanceKm)).forEach((c) => grid?.appendChild(c));
+    btnGeo.disabled = false;
+    btnGeo.setAttribute('aria-pressed', 'true');
+    btnGeo.classList.add('text-corail');
+  }
+
+  function positionMemorisee(): { lat: number; lng: number } | null {
+    try { return JSON.parse(sessionStorage.getItem('position') ?? 'null'); } catch { return null; }
+  }
+
+  btnGeo?.addEventListener('click', () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        const pos = { lat: p.coords.latitude, lng: p.coords.longitude };
+        try { sessionStorage.setItem('position', JSON.stringify(pos)); } catch {}
+        trierParDistance(pos);
+      },
+      (err) => { if (err.code !== err.PERMISSION_DENIED) alert("Impossible d'obtenir votre position."); },
+      { timeout: 10000 }
+    );
+  });
+
+  if (new URLSearchParams(location.search).has('autour')) {
+    const pos = positionMemorisee();
+    if (pos) trierParDistance(pos);
+  }
+</script>
