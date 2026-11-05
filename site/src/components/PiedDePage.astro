@@ -1,0 +1,123 @@
+---
+import Icone from './Icone.astro';
+import { sanityClient } from '../lib/sanity.js';
+import { urlRecherche } from '../lib/contenu';
+
+const data: any = sanityClient
+  ? await sanityClient
+      .fetch(`{ "c": *[_id == "accueil"][0]{ instagram, facebook, linkedin, email, telephone },
+               "pages": *[_type == "page" && defined(slug.current)].slug.current }`)
+      .catch(() => null)
+  : null;
+const c = data?.c;
+// On n'affiche que les liens vers des pages qui existent dans Sanity (pas de lien mort).
+const pages: string[] = data?.pages ?? [];
+const existe = (slug: string) => pages.includes(slug);
+const email = c?.email || 'contact.aplpo@gmail.com';
+const telephone = c?.telephone || '06 11 97 86 07';
+const reseaux = [
+  { nom: 'instagram', label: 'Instagram', url: c?.instagram },
+  { nom: 'facebook', label: 'Facebook', url: c?.facebook },
+  { nom: 'linkedin', label: 'LinkedIn', url: c?.linkedin },
+].filter((r) => r.url);
+const explorer = [
+  { label: 'Nos univers', href: '/#univers' },
+  { label: 'Nos territoires', href: '/#territoires' },
+  { label: 'En famille dans le 66', href: urlRecherche({ public: 'famille' }) },
+  { label: 'Team building dans le 66', href: urlRecherche({ groupe: 'team building' }) },
+  { label: 'Activités indoor dans le 66', href: urlRecherche({ cadre: 'en intérieur' }) },
+  { label: 'Activités de plein air', href: urlRecherche({ cadre: 'en plein air' }) },
+];
+const legales = [
+  { slug: 'mentions-legales', label: 'Mentions légales' },
+  { slug: 'confidentialite', label: 'Politique de confidentialité' },
+  { slug: 'cookies', label: 'Politique de cookies' },
+].filter((l) => existe(l.slug));
+const lienRejoindre = existe('a-propos') ? '/a-propos#nous-rejoindre' : `mailto:${email}?subject=${encodeURIComponent('Rejoindre l’APLPO')}`;
+---
+<footer class="bg-bleu text-white">
+  <div class="mx-auto max-w-6xl px-6 py-14 sm:px-8">
+    <div class="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+      <nav aria-labelledby="pied-explorer">
+        <h2 id="pied-explorer" class="text-lg font-semibold sm:text-xl">Explorer le 66</h2>
+        <ul class="mt-5 space-y-3 text-white/95">
+          {explorer.map((l) => <li><a href={l.href} class="hover:underline">{l.label}</a></li>)}
+        </ul>
+      </nav>
+      <nav aria-labelledby="pied-aplpo">
+        <h2 id="pied-aplpo" class="text-lg font-semibold sm:text-xl">L’APLPO</h2>
+        <ul class="mt-5 space-y-3 text-white/95">
+          {existe('a-propos') && <li><a href="/a-propos" class="hover:underline">À propos</a></li>}
+          <li><a href={lienRejoindre} class="hover:underline">Nous rejoindre</a></li>
+          <li><a href="/connexion" class="hover:underline">Espace adhérent</a></li>
+        </ul>
+      </nav>
+      <div>
+        <h2 class="text-lg font-semibold sm:text-xl">Contact</h2>
+        <ul class="mt-5 space-y-3 break-words text-white/95">
+          <li><a href={`mailto:${email}`} class="hover:underline">{email}</a></li>
+          <li><a href={`tel:${telephone.replace(/\s/g, '')}`} class="hover:underline">{telephone}</a></li>
+        </ul>
+        {reseaux.length > 0 && (
+          <ul class="mt-6 flex gap-6" aria-label="Nous suivre">
+            {reseaux.map((r) => (
+              <li><a href={r.url} target="_blank" rel="noopener noreferrer" aria-label={r.label} class="block hover:opacity-80"><Icone nom={r.nom} class="h-9 w-9" /></a></li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <form id="form-promos" name="promos" method="POST" action="/api/promo" class="sm:col-span-2 lg:col-span-1">
+        <p class="hidden"><label>Ne pas remplir : <input name="bot-field" tabindex="-1" autocomplete="off" /></label></p>
+        <h2 class="text-xl font-semibold">Recevoir mes promos par e-mail</h2>
+        <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+          <label class="sr-only" for="promo-code">Votre code promo</label>
+          <input id="promo-code" name="code" type="text" required placeholder="Votre code promo" autocomplete="off"
+            class="w-full min-w-0 rounded-xl bg-white px-4 py-3.5 text-encre placeholder:text-gris outline-none focus:ring-2 focus:ring-corail" />
+          <label class="sr-only" for="promo-email">Votre e-mail</label>
+          <input id="promo-email" name="email" type="email" required placeholder="Votre e-mail" autocomplete="email"
+            class="w-full min-w-0 rounded-xl bg-white px-4 py-3.5 text-encre placeholder:text-gris outline-none focus:ring-2 focus:ring-corail" />
+        </div>
+        <label class="mt-4 flex items-start gap-3 text-white/95">
+          <input name="consentement" type="checkbox" value="oui" required class="mt-1 h-5 w-5 shrink-0 accent-corail" />
+          <span>J’accepte l’utilisation de mon e-mail pour recevoir les offres associées à mon code.</span>
+        </label>
+        <button type="submit" class="mt-6 rounded-xl bg-corail px-7 py-4 font-medium text-encre transition-colors hover:bg-corail-fonce hover:text-white">
+          Recevoir mes offres →
+        </button>
+        <p id="promos-message" class="mt-4 hidden font-medium" role="status"></p>
+      </form>
+    </div>
+
+    <div class="mt-12 border-t border-white/30 pt-8 text-sm">
+      {legales.length > 0 && (
+        <ul class="mb-6 flex flex-wrap gap-x-8 gap-y-3">
+          {legales.map((l) => <li><a href={`/${l.slug}`} class="hover:underline">{l.label}</a></li>)}
+        </ul>
+      )}
+      <p>© APLPO – Activités et Loisirs 66</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Envoi à /api/promo (vérification du code et envoi automatique de l'e-mail des offres).
+  const form = document.getElementById('form-promos') as HTMLFormElement | null;
+  const message = document.getElementById('promos-message');
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const bouton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    bouton.disabled = true;
+    const afficher = (texte: string) => { if (message) { message.textContent = texte; message.classList.remove('hidden'); } };
+    try {
+      const res = await fetch(form.action, { method: 'POST', body: new FormData(form) });
+      const r = await res.json().catch(() => ({}));
+      if (res.ok && r.ok) form.reset();
+      afficher(r.message ?? (res.ok ? 'Merci ! Vos offres arrivent dans votre boîte mail.' : 'L’envoi a échoué, merci de réessayer.'));
+    } catch {
+      afficher('L’envoi a échoué, merci de réessayer.');
+    } finally {
+      bouton.disabled = false;
+    }
+  });
+</script>

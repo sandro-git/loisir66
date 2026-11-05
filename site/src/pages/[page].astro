@@ -1,0 +1,61 @@
+---
+// Pages de contenu gérées dans Sanity (type « page ») : À propos, mentions légales, confidentialité, cookies.
+import Site from '../layouts/Site.astro';
+import { toHTML } from '@portabletext/to-html';
+import { sanityClient, urlForImage } from '../lib/sanity.js';
+
+const p: any = sanityClient
+  ? await sanityClient
+      .fetch(`*[_type == "page" && slug.current == $slug][0]{ titre, introduction, contenu, rejoindre, partenaires, "email": *[_id == "accueil"][0].email }`, { slug: Astro.params.page })
+      .catch(() => null)
+  : null;
+if (!p) return new Response('Page introuvable', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+
+const html = p.contenu ? toHTML(p.contenu) : '';
+const email = p.email || 'contact.aplpo@gmail.com';
+---
+<Site title={`${p.titre} — Loisirs 66`} description={p.introduction?.slice(0, 155) ?? `${p.titre} — APLPO, Activités et Loisirs 66`}>
+  <article class="mx-auto max-w-3xl px-6 pb-20 pt-4 sm:px-8">
+    <p class="surtitre">APLPO</p>
+    <h1 class="titre-section mt-3">{p.titre}</h1>
+    {p.introduction && <p class="mt-6 text-xl leading-relaxed text-gris">{p.introduction}</p>}
+    {html && <div class="contenu mt-8" set:html={html} />}
+
+    {p.rejoindre && (
+      <section id="nous-rejoindre" class="mt-14 scroll-mt-6 rounded-3xl bg-sable p-8 sm:p-10">
+        <h2 class="text-2xl font-semibold sm:text-3xl">Nous rejoindre</h2>
+        <p class="mt-4 whitespace-pre-line text-lg leading-relaxed text-gris">{p.rejoindre}</p>
+        <a href={`mailto:${email}?subject=${encodeURIComponent('Rejoindre l’APLPO')}`} class="mt-6 inline-flex rounded-xl bg-corail px-7 py-4 font-medium text-encre hover:bg-corail-fonce hover:text-white">Nous contacter</a>
+      </section>
+    )}
+
+    {p.partenaires?.length > 0 && (
+      <section class="mt-14">
+        <h2 class="text-2xl font-semibold sm:text-3xl">Nos partenaires</h2>
+        <ul class="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-3">
+          {p.partenaires.map((x: any) => {
+            const logo = x.logo?.asset ? urlForImage(x.logo)?.width(360).fit('max').auto('format').url() : null;
+            const contenu = logo
+              ? <img src={logo} alt={x.nom} loading="lazy" class="mx-auto max-h-20 w-auto object-contain" />
+              : <span class="font-medium">{x.nom}</span>;
+            return (
+              <li class="flex h-32 items-center justify-center rounded-2xl border border-trait bg-white p-4 text-center">
+                {x.url ? <a href={x.url} target="_blank" rel="noopener noreferrer" class="block">{contenu}</a> : contenu}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    )}
+  </article>
+</Site>
+
+<style is:global>
+  .contenu h2 { font-size: 1.5rem; font-weight: 600; margin: 2.5rem 0 1rem; }
+  .contenu h3 { font-size: 1.2rem; font-weight: 600; margin: 2rem 0 0.75rem; }
+  .contenu p { margin: 0 0 1rem; line-height: 1.8; color: var(--color-gris); font-size: 1.0625rem; }
+  .contenu ul, .contenu ol { margin: 0 0 1rem 1.25rem; list-style: disc; color: var(--color-gris); line-height: 1.8; }
+  .contenu ol { list-style: decimal; }
+  .contenu a { color: var(--color-bleu-fonce); text-decoration: underline; }
+  .contenu strong { color: var(--color-encre); }
+</style>

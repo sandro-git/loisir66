@@ -5,9 +5,27 @@ interface Props {
   title?: string;
   description?: string;
   bodyClass?: string;
+  /** Image de partage (Open Graph), URL absolue. */
+  image?: string | null;
+  /** Données structurées Schema.org (un objet ou une liste). */
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[] | null;
+  /** Pages privées / techniques : pas d'indexation. */
+  noindex?: boolean;
 }
 
-const { title = 'Loisirs 66', description = 'Loisirs 66 — activités et loisirs dans les Pyrénées-Orientales', bodyClass = 'bg-gray-50 text-gray-900' } = Astro.props;
+const {
+  title = 'Loisirs 66',
+  description = 'Loisirs 66 — activités et loisirs dans les Pyrénées-Orientales',
+  bodyClass = 'bg-gray-50 text-gray-900',
+  image,
+  jsonLd,
+  noindex = false,
+} = Astro.props;
+// URL canonique : sans paramètres (les combinaisons de filtres ne sont pas indexées).
+const canonique = new URL(Astro.url.pathname, Astro.url.origin).href;
+const imagePartage = image ?? new URL('/logo-aplpo.avif', Astro.url.origin).href;
+// Échappe « < » pour qu'un contenu saisi ne puisse pas fermer la balise <script>.
+const ld = jsonLd ? JSON.stringify(jsonLd).replace(/</g, '\\u003c') : null;
 ---
 
 <!doctype html>
@@ -15,9 +33,21 @@ const { title = 'Loisirs 66', description = 'Loisirs 66 — activités et loisir
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content={description} />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonique} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:site_name" content="APLPO – Activités et Loisirs 66" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonique} />
+    <meta property="og:image" content={imagePartage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/logo-aplpo.avif" type="image/avif" />
+    {ld && <script type="application/ld+json" set:html={ld} />}
+    <slot name="head" />
   </head>
   <body class={`${bodyClass} min-h-screen`}>
     <slot />

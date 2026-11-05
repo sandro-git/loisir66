@@ -1,1 +1,45 @@
 @import "tailwindcss";
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/poppins/700.css";
+
+/* Charte APLPO (maquettes 2026-11) */
+@theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --color-corail: #e07360;
+  --color-corail-fonce: #c95c49;
+  --color-bleu: #368db3;
+  --color-bleu-fonce: #2a7598;
+  --color-encre: #26272b;
+  --color-gris: #6b6e75;
+  --color-sable: #f8f6f2;
+  --color-trait: #e7e5e1;
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body { @apply font-sans text-encre bg-white antialiased; }
+}
+
+@layer components {
+  /* Surtitre en capitales espacées (« À CHACUN SES ENVIES ») */
+  .surtitre { @apply text-bleu-fonce text-xs font-semibold uppercase tracking-[0.2em]; }
+  .titre-section { @apply text-3xl sm:text-4xl font-semibold tracking-tight text-encre; }
+
+  /* Carrousel horizontal à défilement natif (scroll-snap) */
+  .defilant {
+    @apply flex gap-4 overflow-x-auto snap-x snap-mandatory;
+    scrollbar-width: none;
+  }
+  .defilant::-webkit-scrollbar { display: none; }
+  .defilant > * { @apply snap-start shrink-0; }
+
+  .pastille { @apply inline-flex items-center rounded-full border border-trait bg-white px-5 py-2.5 text-sm text-encre; }
+
+  .bouton-fleche {
+    @apply inline-flex h-12 w-12 items-center justify-center rounded-full border border-trait bg-white text-encre transition-colors hover:border-bleu hover:text-bleu disabled:opacity-40 disabled:hover:border-trait disabled:hover:text-encre;
+  }
+
+  .lien-souligne { @apply inline-flex items-center gap-3 border-b-2 border-bleu pb-1.5 font-medium text-encre hover:text-bleu-fonce; }
+}

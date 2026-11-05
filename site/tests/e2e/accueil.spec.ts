@@ -1,131 +1,156 @@
 import { expect, test, type Page } from '@playwright/test';
 
 // Ces tests lisent le vrai contenu Sanity : ils vérifient des comportements
-// (le filtre réduit la liste, etc.) plutôt que des nombres exacts de fiches.
+// (un filtre réduit la liste, etc.) plutôt que des nombres exacts de fiches.
 
-const cartes = (page: Page) => page.locator('#cards-grid .activity-card');
-const cartesVisibles = (page: Page) => page.locator('#cards-grid .activity-card:visible');
-const compteur = (page: Page) => page.locator('#count');
+test.describe('accueil', () => {
+  test.beforeEach(async ({ page }) => { await page.goto('/'); });
 
-async function nombreAffiche(page: Page): Promise<number> {
-  const texte = (await compteur(page).textContent()) ?? '';
-  return Number(texte.match(/\d+/)?.[0]);
-}
+  test('affiche le bandeau, la recherche, les univers et les territoires', async ({ page }) => {
+    await expect(page).toHaveTitle(/Loisirs 66/);
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Découvrez les loisirs du 66');
+    await expect(page.getByRole('search').getByPlaceholder('Quelle activité vous tente ?')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Nos univers' })).toBeVisible();
+    expect(await page.locator('#univers li a').count()).toBe(6);
+    await expect(page.locator('#univers')).toContainText('Animaux & ferme');
+    await expect(page.getByRole('heading', { name: 'Nos territoires' })).toBeVisible();
+    expect(await page.locator('#territoires li a').count()).toBeGreaterThanOrEqual(2);
+  });
 
-test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-  // le script client remplit le compteur au premier filtrage ; on attend que la grille soit là
-  await expect(cartes(page).first()).toBeAttached();
+  test('la recherche mène à /recherche avec le mot-clé', async ({ page }) => {
+    await page.getByRole('search').getByPlaceholder('Quelle activité vous tente ?').fill('karting');
+    await page.getByRole('button', { name: 'Rechercher' }).click();
+    await expect(page).toHaveURL(/\/recherche\?q=karting$/);
+    await expect(page.locator('#cards-grid .activity-card').first()).toBeVisible();
+  });
+
+  test('un univers mène à la liste filtrée', async ({ page }) => {
+    await page.locator('#univers li a').first().click();
+    await expect(page).toHaveURL(/\/recherche\?univers=/);
+    await expect(page.locator('a.chip.active[data-filter="univers"]')).toHaveCount(1);
+  });
+
+  test('les raccourcis mènent à la recherche', async ({ page }) => {
+    await page.getByRole('navigation', { name: 'Raccourcis' }).getByRole('link', { name: 'En intérieur' }).click();
+    await expect(page).toHaveURL(/\/recherche\?cadre=en\+int%C3%A9rieur$/);
+  });
+
+  test('le menu mobile s’ouvre et se ferme', async ({ page, isMobile }) => {
+    test.skip(!isMobile, 'menu burger propre au mobile');
+    await page.getByRole('button', { name: 'Ouvrir le menu' }).click();
+    const menu = page.getByRole('dialog', { name: 'Menu' });
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+  });
 });
 
-test("la page d'accueil affiche le titre, la recherche et des activités", async ({ page }) => {
-  await expect(page).toHaveTitle(/Loisirs 66/);
-  await expect(page.getByRole('heading', { name: 'Trouvez une activité' })).toBeVisible();
-  await expect(page.locator('#search-input')).toBeVisible();
-  expect(await cartes(page).count()).toBeGreaterThan(10);
-  await expect(page.locator('#univers-section')).toBeVisible();
+test.describe('recherche', () => {
+  const cartes = (page: Page) => page.locator('#cards-grid .activity-card');
+  const nombreAffiche = async (page: Page) => Number(((await page.locator('#count').textContent()) ?? '').match(/\d+/)?.[0]);
+
+  test('sans critère, liste toutes les activités', async ({ page }) => {
+    await page.goto('/recherche');
+    const total = await cartes(page).count();
+    expect(total).toBeGreaterThan(10);
+    expect(await nombreAffiche(page)).toBe(total);
+    await expect(page.locator('#btn-clear-filters')).toHaveCount(0);
+  });
+
+  test('un mot-clé réduit la liste', async ({ page }) => {
+    await page.goto('/recherche');
+    const total = await cartes(page).count();
+    await page.goto('/recherche?q=karting');
+    const n = await cartes(page).count();
+    expect(n).toBeGreaterThan(0);
+    expect(n).toBeLessThan(total);
+    expect(await nombreAffiche(page)).toBe(n);
+  });
+
+  test('une recherche sans résultat l’indique', async ({ page }) => {
+    await page.goto('/recherche?q=zzzz-aucune-activite');
+    await expect(page.locator('#count')).toHaveText('0 activité trouvée');
+    await expect(page.getByText('Aucune activité ne correspond à ces critères.')).toBeVisible();
+  });
+
+  test('un filtre s’active puis se retire, « effacer » réinitialise', async ({ page }) => {
+    await page.goto('/recherche');
+    const total = await cartes(page).count();
+    await page.locator('a.chip[data-filter="cadre"][data-value="en intérieur"]').click();
+    await expect(page).toHaveURL(/cadre=en\+int%C3%A9rieur/);
+    const n = await cartes(page).count();
+    expect(n).toBeGreaterThan(0);
+    expect(n).toBeLessThan(total);
+
+    await page.locator('a.chip.active[data-filter="cadre"]').click();
+    await expect(page).toHaveURL(/\/recherche$/);
+    await expect(cartes(page)).toHaveCount(total);
+
+    await page.goto('/recherche?cadre=en+plein+air&q=parc');
+    await page.locator('#btn-clear-filters').click();
+    await expect(page).toHaveURL(/\/recherche$/);
+  });
+
+  test('une carte mène à la fiche, « Retour aux résultats » ramène à la recherche', async ({ page }) => {
+    await page.goto('/recherche?cadre=en+int%C3%A9rieur');
+    const lien = cartes(page).first().locator('a');
+    const href = await lien.getAttribute('href');
+    expect(href).toMatch(/^\/loisirs66\/[\w-]+$/);
+    await lien.click();
+    await expect(page).toHaveURL(href!);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await page.waitForLoadState('load');
+    await page.locator('#retour-bas').click();
+    await expect(page).toHaveURL(/\/recherche\?cadre=en\+int%C3%A9rieur$/);
+  });
+
+  test('les anciens liens type=indoor restent valides', async ({ page }) => {
+    await page.goto('/recherche?type=indoor');
+    await expect(page.locator('a.chip.active[data-filter="cadre"][data-value="en intérieur"]')).toHaveCount(1);
+  });
 });
 
-test('la recherche filtre les cartes et met à jour le compteur', async ({ page }) => {
-  const total = await cartes(page).count();
+test.describe('recherche (suite)', () => {
+  test('propose d’autres univers après la liste, sans l’univers actif', async ({ page }) => {
+    await page.goto('/recherche?univers=animaux-ferme');
+    const bloc = page.getByRole('navigation', { name: 'Les autres univers' });
+    await expect(bloc).toBeVisible();
+    expect(await bloc.getByRole('link').count()).toBeGreaterThan(0);
+    await expect(bloc.getByRole('link', { name: /Animaux & ferme/ })).toHaveCount(0);
+  });
 
-  await page.locator('#search-input').fill('karting');
-  await expect(compteur(page)).toHaveText(/activités? trouvées?/);
-  const visibles = await cartesVisibles(page).count();
+  test('propose d’autres envies après une liste filtrée par tag', async ({ page }) => {
+    await page.goto('/recherche?cadre=en+int%C3%A9rieur');
+    await expect(page.getByRole('navigation', { name: 'D’autres envies' })).toBeVisible();
+  });
 
-  expect(visibles).toBeGreaterThan(0);
-  expect(visibles).toBeLessThan(total);
-  expect(await nombreAffiche(page)).toBe(visibles);
-  for (const carte of await cartesVisibles(page).all()) {
-    const texte = `${await carte.getAttribute('data-nom')} ${await carte.getAttribute('data-description')}`;
-    expect(texte).toContain('karting');
-  }
-  // « Nos univers » est masqué pendant une recherche
-  await expect(page.locator('#univers-section')).toBeHidden();
+  test('la barre de recherche réapparaît en haut au défilement', async ({ page }) => {
+    await page.goto('/recherche');
+    const barre = page.locator('#barre-fixe');
+    await expect(barre).toHaveClass(/-translate-y-full/);
+    await page.locator('#cards-grid .activity-card').nth(6).scrollIntoViewIfNeeded();
+    await expect(barre).not.toHaveClass(/-translate-y-full/);
+  });
+
+  test('un synonyme trouve les activités du tag correspondant', async ({ page }) => {
+    await page.goto('/recherche?q=interieur');
+    const n = await page.locator('#cards-grid .activity-card').count();
+    expect(n).toBeGreaterThan(0);
+  });
+
+  test('le bandeau de l’accueil propose la saison en cours', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('navigation', { name: 'Raccourcis' }).getByRole('link', { name: /^À faire / })).toHaveCount(1);
+  });
 });
 
-test('une recherche sans résultat affiche 0 activité', async ({ page }) => {
-  await page.locator('#search-input').fill('zzzz-aucune-activite');
-  await expect(compteur(page)).toHaveText('0 activité trouvée');
-  await expect(cartesVisibles(page)).toHaveCount(0);
-});
-
-test('un filtre (chip) réduit la liste, un second clic le retire', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'les chips de la page sont masqués sur mobile (voir test dédié)');
-  const total = await cartes(page).count();
-  const chip = page.locator('main .chip[data-filter="type"][data-value="indoor"]');
-
-  await chip.click();
-  await expect(chip).toHaveClass(/active/);
-  const visibles = await cartesVisibles(page).count();
-  expect(visibles).toBeGreaterThan(0);
-  expect(visibles).toBeLessThan(total);
-  for (const carte of await cartesVisibles(page).all()) {
-    await expect(carte).toHaveAttribute('data-type', 'indoor');
-  }
-
-  await chip.click();
-  await expect(chip).not.toHaveClass(/active/);
-  await expect(cartesVisibles(page)).toHaveCount(total);
-});
-
-test('le bouton « effacer » réinitialise recherche et filtres', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'les chips de la page sont masqués sur mobile (voir test dédié)');
-  const total = await cartes(page).count();
-  const effacer = page.locator('#btn-clear-filters');
-
-  await expect(effacer).toBeHidden();
-  await page.locator('main .chip[data-filter="type"][data-value="outdoor"]').click();
-  await page.locator('#search-input').fill('parc');
-  await expect(effacer).toBeVisible();
-
-  await effacer.click();
-  await expect(page.locator('#search-input')).toHaveValue('');
-  await expect(page.locator('main .chip.active')).toHaveCount(0);
-  await expect(cartesVisibles(page)).toHaveCount(total);
-  await expect(effacer).toBeHidden();
-});
-
-test('un clic sur un univers filtre par branche', async ({ page }) => {
-  const total = await cartes(page).count();
-  const univers = page.locator('.univers-card').first();
-  const branche = await univers.getAttribute('data-branche-filter');
-
-  await univers.click();
-  const visibles = await cartesVisibles(page).count();
-  expect(visibles).toBeLessThan(total);
-  for (const carte of await cartesVisibles(page).all()) {
-    await expect(carte).toHaveAttribute('data-branche', branche!);
-  }
-});
-
-test("une carte mène à la fiche de l'activité", async ({ page }) => {
-  const carte = cartes(page).first();
-  const href = await carte.getAttribute('href');
-  expect(href).toMatch(/^\/loisirs66\/[\w-]+$/);
-
-  await carte.click();
-  await expect(page).toHaveURL(href!);
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await page.getByRole('link', { name: /Retour aux activités/ }).click();
-  await expect(page).toHaveURL(/\/$/);
-});
-
-test('sur mobile, les filtres sont dans la barre fixe qui apparaît au défilement', async ({ page, isMobile }) => {
-  test.skip(!isMobile, 'comportement propre au mobile');
-  const barre = page.locator('#sticky-bar');
-  const chip = barre.locator('.chip[data-filter="type"][data-value="indoor"]');
-
-  await expect(page.locator('main .chip').first()).toBeHidden();
-  await expect(barre).toHaveClass(/-translate-y-full/);
-
-  await page.locator('#cards-grid').scrollIntoViewIfNeeded();
-  await expect(barre).not.toHaveClass(/-translate-y-full/);
-
-  const total = await cartes(page).count();
-  await chip.click();
-  await expect(chip).toHaveClass(/active/);
-  const visibles = await cartesVisibles(page).count();
-  expect(visibles).toBeGreaterThan(0);
-  expect(visibles).toBeLessThan(total);
+test.describe('fiche adhérent', () => {
+  test('affiche nom, catégorie, lien vers le professionnel et suggestions', async ({ page }) => {
+    await page.goto('/loisirs66/parc-animalier-de-casteil');
+    await expect(page).toHaveTitle(/Casteil/i);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Casteil/i);
+    await expect(page.getByRole('link', { name: /Découvrir le site du professionnel/ })).toHaveAttribute('href', /^https?:\/\//);
+    await expect(page.getByRole('heading', { name: 'À découvrir aussi' })).toBeVisible();
+    expect(await page.locator('#decouvrir-aussi [data-piste] > a').count()).toBeGreaterThan(0);
+  });
 });
