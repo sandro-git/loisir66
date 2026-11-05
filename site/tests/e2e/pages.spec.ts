@@ -41,3 +41,35 @@ for (const url of ['/', '/recherche', '/loisirs66/parc-animalier-de-casteil']) {
     expect(erreurs).toEqual([]);
   });
 }
+
+test.describe('formulaire codes promo (/api/promo)', () => {
+  const envoyer = (request: any, champs: Record<string, string>) => request.post('/api/promo', { multipart: champs });
+
+  test('refuse une saisie incomplète', async ({ request }) => {
+    const r = await envoyer(request, { code: 'TEST', email: 'pas-un-email', consentement: 'oui' });
+    expect(r.status()).toBe(400);
+    expect((await r.json()).message).toMatch(/e-mail invalide/i);
+    const r2 = await envoyer(request, { code: 'TEST', email: 'a@exemple.fr' });
+    expect(r2.status()).toBe(400);
+  });
+
+  test('ignore silencieusement les robots (pot de miel)', async ({ request }) => {
+    const r = await envoyer(request, { code: 'X', email: 'a@exemple.fr', consentement: 'oui', 'bot-field': 'spam' });
+    expect(r.status()).toBe(200);
+  });
+
+  test('un code inconnu est refusé (ou service non configuré)', async ({ request }) => {
+    const r = await envoyer(request, { code: 'CODE-INEXISTANT-E2E', email: 'a@exemple.fr', consentement: 'oui' });
+    expect([404, 503]).toContain(r.status());
+    expect((await r.json()).ok).toBe(false);
+  });
+
+  test('le formulaire du pied de page affiche la réponse', async ({ page }) => {
+    await page.goto('/');
+    await page.fill('#promo-code', 'CODE-INEXISTANT-E2E');
+    await page.fill('#promo-email', 'a@exemple.fr');
+    await page.check('input[name="consentement"]');
+    await page.getByRole('button', { name: /Recevoir mes offres/ }).click();
+    await expect(page.locator('#promos-message')).toBeVisible();
+  });
+});

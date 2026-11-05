@@ -2,6 +2,8 @@
 import Layout from '../layouts/Layout.astro';
 import { createClient } from '@supabase/supabase-js';
 import { sanityClient, urlForImage } from '../lib/sanity.js';
+import { createClient as createSanityClient } from '@sanity/client';
+import { MES_CAMPAGNES_QUERY } from '../lib/promo';
 
 // Auth
 const accessToken = Astro.cookies.get('sb-access-token')?.value;
@@ -33,6 +35,22 @@ if (adherentRow?.sanity_doc_id && sanityClient) {
     { id: adherentRow.sanity_doc_id.trim() }
   ).catch(() => null);
 }
+
+// « Mes campagnes » (lecture seule) : campagnes privées où figure CETTE structure, réduites à ses offres.
+let campagnes: any[] = [];
+const docId = adherentRow?.sanity_doc_id?.trim();
+if (docId && import.meta.env.SANITY_READ_TOKEN) {
+  const lecteur = createSanityClient({
+    projectId: import.meta.env.PUBLIC_SANITY_PROJECT_ID,
+    dataset: import.meta.env.PUBLIC_SANITY_DATASET ?? 'production',
+    apiVersion: import.meta.env.PUBLIC_SANITY_API_VERSION ?? '2024-01-01',
+    useCdn: false,
+    token: import.meta.env.SANITY_READ_TOKEN,
+    perspective: 'published',
+  });
+  campagnes = await lecteur.fetch(MES_CAMPAGNES_QUERY, { id: docId }).catch(() => []);
+}
+const dateFr = (iso?: string) => (iso ? iso.split('-').reverse().join('/') : '');
 
 const success = Astro.url.searchParams.get('success');
 const erreur  = Astro.url.searchParams.get('erreur');
@@ -73,6 +91,33 @@ const saisonOptions = ['Été', 'Hiver', 'Toute saison'];
       <div class="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3 mb-6">
         Aucune fiche n'est encore liée à votre compte. Contactez l'administrateur.
       </div>
+    )}
+
+    {campagnes.length > 0 && (
+      <section class="bg-white border border-gray-100 shadow-sm rounded-2xl p-6 mb-6" aria-labelledby="titre-campagnes">
+        <h2 id="titre-campagnes" class="text-lg font-bold text-gray-900">Mes campagnes</h2>
+        <p class="text-gray-500 text-sm mt-1">Campagnes promo de l’APLPO auxquelles vous participez (lecture seule). Pour toute modification, contactez l’APLPO.</p>
+        <ul class="mt-4 space-y-4">
+          {campagnes.map((c) => (
+            <li class="border border-gray-100 rounded-xl p-4">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-semibold text-gray-900">{c.nom}</span>
+                <span class={`text-xs font-medium px-2.5 py-1 rounded-full ${c.etat === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{c.etat === 'active' ? 'Active' : 'Terminée'}</span>
+              </div>
+              {(c.debut || c.fin) && <p class="text-sm text-gray-500 mt-1">{c.debut && `Du ${dateFr(c.debut)}`} {c.fin && `au ${dateFr(c.fin)}`}</p>}
+              {c.codes?.length > 0 && <p class="text-sm mt-2"><span class="text-gray-500">Codes utilisables :</span> <span class="font-mono">{c.codes.join(', ')}</span></p>}
+              {(c.offres ?? []).map((o: any) => (
+                <dl class="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  {o.tarifPromo && <><dt class="text-gray-500">Tarif promo</dt><dd class="font-medium">{o.tarifPromo}</dd></>}
+                  {o.tarifPublic && <><dt class="text-gray-500">Tarif public</dt><dd>{o.tarifPublic}</dd></>}
+                  {(o.debut || o.fin) && <><dt class="text-gray-500">Validité</dt><dd>{o.debut && `du ${dateFr(o.debut)}`} {o.fin && `au ${dateFr(o.fin)}`}</dd></>}
+                  {o.conditions && <><dt class="text-gray-500">Conditions</dt><dd class="whitespace-pre-line">{o.conditions}</dd></>}
+                </dl>
+              ))}
+            </li>
+          ))}
+        </ul>
+      </section>
     )}
 
     {!adherentRow?.sanity_doc_id ? (

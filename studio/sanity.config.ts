@@ -13,7 +13,11 @@ export default defineConfig({
   document: {
     // pas de duplication / suppression du document unique « accueil »
     actions: (prev, { schemaType }) =>
-      schemaType === 'accueil' ? prev.filter(({ action }) => action !== 'duplicate' && action !== 'delete') : prev,
+      schemaType === 'accueil'
+        ? prev.filter(({ action }) => action !== 'duplicate' && action !== 'delete')
+        : schemaType === 'campagne'
+          ? prev.filter(({ action }) => action !== 'duplicate') // un doublon aurait un identifiant public
+          : prev,
   },
   schema,
 })
