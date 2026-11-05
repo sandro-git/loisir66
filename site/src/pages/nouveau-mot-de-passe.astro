@@ -1,0 +1,66 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout noindex title="Nouveau mot de passe — Loisirs 66">
+  <main class="max-w-md mx-auto px-4 py-16">
+    <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-8">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">Nouveau mot de passe</h1>
+
+      <p id="lien-invalide" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3">
+        Ce lien n’est plus valable (il expire au bout d’une heure).
+        <a href="/mot-de-passe-oublie" class="underline">Demander un nouveau lien</a>.
+      </p>
+
+      <form id="form-mdp" class="hidden space-y-4">
+        <p class="text-gray-600 text-sm mb-4">Choisissez un mot de passe d’au moins 8 caractères.</p>
+        <div>
+          <label class="block text-sm text-gray-600 mb-2" for="mdp">Nouveau mot de passe</label>
+          <input id="mdp" type="password" required minlength="8" autocomplete="new-password"
+            class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 outline-none focus:border-orange-400" />
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-2" for="mdp2">Confirmer</label>
+          <input id="mdp2" type="password" required minlength="8" autocomplete="new-password"
+            class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 outline-none focus:border-orange-400" />
+        </div>
+        <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 rounded-xl transition-colors mt-2">
+          Enregistrer
+        </button>
+        <p id="erreur" class="hidden bg-red-50 text-red-600 text-sm rounded-lg px-4 py-3" role="alert"></p>
+      </form>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  // Le lien reçu par e-mail ouvre cette page avec la session de récupération dans l'URL (#access_token=…&type=recovery) :
+  // supabase-js la lit, puis on efface l'URL pour ne pas laisser le jeton dans l'historique.
+  const supabase = createClient(import.meta.env.PUBLIC_SUPABASE_URL, import.meta.env.PUBLIC_SUPABASE_ANON_KEY, {
+    auth: { detectSessionInUrl: true, persistSession: false, flowType: 'implicit' },
+  });
+  const form = document.getElementById('form-mdp') as HTMLFormElement;
+  const invalide = document.getElementById('lien-invalide')!;
+  const erreur = document.getElementById('erreur')!;
+
+  const { data } = await supabase.auth.getSession();
+  history.replaceState(null, '', location.pathname);
+  if (data.session) form.classList.remove('hidden');
+  else invalide.classList.remove('hidden');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const mdp = (document.getElementById('mdp') as HTMLInputElement).value;
+    const mdp2 = (document.getElementById('mdp2') as HTMLInputElement).value;
+    const afficher = (t: string) => { erreur.textContent = t; erreur.classList.remove('hidden'); };
+    if (mdp.length < 8) return afficher('8 caractères minimum.');
+    if (mdp !== mdp2) return afficher('Les deux mots de passe ne correspondent pas.');
+    const bouton = form.querySelector('button') as HTMLButtonElement;
+    bouton.disabled = true;
+    const { error } = await supabase.auth.updateUser({ password: mdp });
+    if (error) { bouton.disabled = false; return afficher(error.message.includes('different') ? 'Choisissez un mot de passe différent de l’ancien.' : 'Échec de l’enregistrement, merci de réessayer.'); }
+    await supabase.auth.signOut();
+    location.href = '/connexion?reset=1';
+  });
+</script>

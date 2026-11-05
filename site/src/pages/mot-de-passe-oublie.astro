@@ -1,0 +1,51 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout noindex title="Mot de passe oublié — Loisirs 66">
+  <main class="max-w-md mx-auto px-4 py-16">
+    <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-8">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">Mot de passe oublié</h1>
+      <p class="text-gray-600 text-sm mb-8">Indiquez l’e-mail de votre compte adhérent : vous recevrez un lien pour choisir un nouveau mot de passe.</p>
+
+      <form id="form-oubli" class="space-y-4">
+        <div>
+          <label class="block text-sm text-gray-600 mb-2" for="email">Email</label>
+          <input id="email" name="email" type="email" required autocomplete="email" placeholder="vous@email.com"
+            class="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-orange-400" />
+        </div>
+        <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 rounded-xl transition-colors mt-2">
+          Recevoir le lien
+        </button>
+        <p id="message" class="hidden text-sm rounded-lg px-4 py-3" role="status"></p>
+      </form>
+
+      <p class="mt-6 text-center text-sm"><a href="/connexion" class="text-gray-500 underline underline-offset-4 hover:text-orange-500">← Retour à la connexion</a></p>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const supabase = createClient(import.meta.env.PUBLIC_SUPABASE_URL, import.meta.env.PUBLIC_SUPABASE_ANON_KEY);
+  const form = document.getElementById('form-oubli') as HTMLFormElement;
+  const message = document.getElementById('message')!;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const bouton = form.querySelector('button') as HTMLButtonElement;
+    bouton.disabled = true;
+    const email = (form.elements.namedItem('email') as HTMLInputElement).value.trim();
+    // L'adresse de retour doit figurer dans Supabase → Authentication → URL Configuration → Redirect URLs.
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/nouveau-mot-de-passe` });
+    message.classList.remove('hidden');
+    // Message identique que le compte existe ou non (pas d'indice pour un tiers).
+    message.className = error && error.status === 429
+      ? 'text-sm rounded-lg px-4 py-3 bg-red-50 text-red-600'
+      : 'text-sm rounded-lg px-4 py-3 bg-green-50 text-green-700';
+    message.textContent = error && error.status === 429
+      ? 'Trop de demandes, merci de réessayer dans quelques minutes.'
+      : 'Si un compte existe pour cette adresse, un e-mail vient de vous être envoyé.';
+    bouton.disabled = false;
+  });
+</script>

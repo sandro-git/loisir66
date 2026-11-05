@@ -103,3 +103,23 @@ test.describe('référencement', () => {
     expect((await request.get('/page-qui-n-existe-pas')).status()).toBe(404);
   });
 });
+
+test.describe('mot de passe oublié (Supabase requis : testé sur la preview)', () => {
+  test.skip(!process.env.BASE_URL, 'les clés Supabase ne sont pas configurées en local');
+
+  test('la connexion propose « Mot de passe oublié ? »', async ({ page }) => {
+    await page.goto('/connexion');
+    await page.getByRole('link', { name: 'Mot de passe oublié ?' }).click();
+    await expect(page).toHaveURL(/\/mot-de-passe-oublie$/);
+  });
+
+  test('sans lien valable, la page de nouveau mot de passe le dit', async ({ page }) => {
+    await page.goto('/nouveau-mot-de-passe');
+    await expect(page.getByText('Ce lien n’est plus valable')).toBeVisible();
+  });
+
+  test('un lien de récupération arrivé sur l’accueil est redirigé', async ({ page }) => {
+    await page.goto('/#access_token=faux&type=recovery');
+    await expect(page).toHaveURL(/\/nouveau-mot-de-passe/);
+  });
+});

@@ -48,6 +48,8 @@ const ld = jsonLd ? JSON.stringify(jsonLd).replace(/</g, '\\u003c') : null;
     <link rel="icon" href="/logo-aplpo.avif" type="image/avif" />
     {ld && <script type="application/ld+json" set:html={ld} />}
     <slot name="head" />
+    {/* Lien « mot de passe » envoyé depuis le tableau de bord Supabase (il revient sur l'adresse du site) : on le renvoie vers la bonne page. */}
+    <script is:inline>if (location.hash.includes('type=recovery') && location.pathname !== '/nouveau-mot-de-passe') location.replace('/nouveau-mot-de-passe' + location.hash);</script>
   </head>
   <body class={`${bodyClass} min-h-screen`}>
     <slot />
