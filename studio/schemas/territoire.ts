@@ -14,8 +14,6 @@ export const territoireType = defineType({
       validation: (Rule) => Rule.required(),
     }),
     defineField({ name: 'image', title: 'Image', type: 'image', options: { hotspot: true } }),
-    defineField({ name: 'ordre', title: 'Ordre d’affichage', type: 'number' }),
   ],
-  orderings: [{ title: 'Ordre', name: 'ordre', by: [{ field: 'ordre', direction: 'asc' }] }],
   preview: { select: { title: 'titre', media: 'image' } },
 })

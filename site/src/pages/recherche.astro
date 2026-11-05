@@ -3,37 +3,51 @@ import Site from '../layouts/Site.astro';
 import Icone from '../components/Icone.astro';
 import CarteActivite from '../components/CarteActivite.astro';
 import { sanityClient } from '../lib/sanity.js';
-import { CARTE_FIELDS, basculerCritere, filtrerActivites, labelPublic, lireCriteres } from '../lib/contenu';
+import {
+  CADRES, CARTE_FIELDS, EXPERIENCES, GROUPES, ORDRE_ANCIENNETE, PUBLICS, SAISONS,
+  basculerCritere, cadresEffectifs, classerParMembres, experiencesEffectives, filtrerActivites,
+  groupesEffectifs, lireCriteres, periodesOuverture, sansAccents,
+} from '../lib/contenu';
 
 const criteres = lireCriteres(Astro.url.searchParams);
 
 const data: any = sanityClient
   ? await sanityClient.fetch(`{
-      "activites": *[_type == "adherent"] | order(nom asc) { ${CARTE_FIELDS} },
-      "univers": *[_type == "univers"] | order(ordre asc, titre asc) { titre, "slug": slug.current, "branches": branches[]->slug.current },
-      "territoires": *[_type == "territoire"] | order(ordre asc, titre asc) { titre, "slug": slug.current }
+      "activites": *[_type == "adherent"] | ${ORDRE_ANCIENNETE} { ${CARTE_FIELDS} },
+      "univers": *[_type == "univers"] { titre, "slug": slug.current, "branches": branches[]->slug.current },
+      "territoires": *[_type == "territoire"] { titre, "slug": slug.current }
     }`).catch(() => null)
   : null;
+// Sans géolocalisation : ancienneté d'adhésion puis nom (tri fait par la requête).
 const toutes: any[] = data?.activites ?? [];
-const univers: any[] = data?.univers ?? [];
-const territoires: any[] = data?.territoires ?? [];
-const brancheParUnivers = Object.fromEntries(univers.map((u) => [u.slug, u.branches ?? []]));
+const univers = classerParMembres(data?.univers ?? [], toutes, 'univers');
+const territoires = classerParMembres(data?.territoires ?? [], toutes, 'territoire');
 
-const resultats = filtrerActivites(toutes, criteres, brancheParUnivers);
+const resultats = filtrerActivites(toutes, criteres, univers);
 
 const titre =
   univers.find((u) => u.slug === criteres.univers)?.titre ??
   territoires.find((t) => t.slug === criteres.territoire)?.titre ??
   (criteres.q ? `« ${criteres.q} »` : 'Toutes les activités');
 
-const publics = ['Famille', 'Enfants', 'Amis', 'Adultes'];
+// Options proposées : seulement les valeurs présentes chez au moins un adhérent (et celle déjà active).
+const present = (valeurs: string[], extraire: (a: any) => string[], cle: string) => {
+  const vus = new Set(toutes.flatMap(extraire).map(sansAccents));
+  const actif = sansAccents((criteres as any)[cle] ?? '');
+  return valeurs.filter((v) => vus.has(sansAccents(v)) || sansAccents(v) === actif);
+};
+const opts = (valeurs: string[], label = (v: string) => v) => valeurs.map((v) => ({ valeur: v.toLowerCase(), label: label(v) }));
 const filtres = [
-  { cle: 'univers' as const, label: 'Univers', options: univers.map((u) => ({ valeur: u.slug, label: u.titre })) },
-  { cle: 'territoire' as const, label: 'Territoire', options: territoires.map((t) => ({ valeur: t.slug, label: t.titre })) },
-  { cle: 'public' as const, label: 'Pour qui ?', options: publics.map((p) => ({ valeur: p.toLowerCase(), label: labelPublic(p) })) },
-  { cle: 'type' as const, label: 'Lieu', options: [{ valeur: 'indoor', label: 'En intérieur' }, { valeur: 'outdoor', label: 'En plein air' }] },
-  { cle: 'groupe' as const, label: 'Groupes', options: [{ valeur: 'scolaires', label: 'Scolaires' }, { valeur: 'groupes & entreprises', label: 'Groupes & entreprises' }] },
-  { cle: 'ambiance' as const, label: 'Ambiance', options: [{ valeur: 'sensations', label: 'Sensations' }] },
+  { cle: 'univers' as const, label: 'Univers', options: univers.filter((u) => u.membres > 0).map((u) => ({ valeur: u.slug, label: u.titre })) },
+  { cle: 'territoire' as const, label: 'Territoire', options: territoires.filter((t) => t.membres > 0).map((t) => ({ valeur: t.slug, label: t.titre })) },
+  { cle: 'public' as const, label: 'Pour qui ?', options: opts(present(Object.keys(PUBLICS), (a) => a.publics ?? [], 'public'), (v) => PUBLICS[v]) },
+  { cle: 'cadre' as const, label: 'Cadre', options: opts(present(CADRES, cadresEffectifs, 'cadre')) },
+  { cle: 'experience' as const, label: 'Expérience', options: opts(present(EXPERIENCES, experiencesEffectives, 'experience')) },
+  { cle: 'saison' as const, label: 'Saison', options: opts(present([...SAISONS], (a) => periodesOuverture(a.periodes, a.saison), 'saison')) },
+  {
+    cle: 'groupe' as const, label: 'Groupes',
+    options: [{ valeur: 'tous', label: 'Tous les groupes' }, ...opts(present(GROUPES, groupesEffectifs, 'groupe'))],
+  },
 ].filter((f) => f.options.length > 0);
 
 const actifs = Object.keys(criteres).length > 0;
@@ -66,7 +80,7 @@ const pluriel = resultats.length > 1 ? 's' : '';
           <span class="w-24 shrink-0 text-xs font-semibold uppercase tracking-widest text-gris">{f.label}</span>
           <ul class="defilant -mr-6 gap-2 pr-6 sm:mr-0 sm:flex-wrap sm:pr-0">
             {f.options.map((o) => {
-              const actif = (criteres[f.cle] ?? '').toLowerCase() === o.valeur.toLowerCase();
+              const actif = sansAccents(criteres[f.cle] ?? '') === sansAccents(o.valeur);
               return (
                 <li>
                   <a href={basculerCritere(criteres, f.cle, o.valeur)} data-filter={f.cle} data-value={o.valeur}
@@ -97,8 +111,8 @@ const pluriel = resultats.length > 1 ? 's' : '';
     ) : (
       <ul id="cards-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {resultats.map((a) => (
-          <li class="activity-card flex" data-nom={(a.nom ?? '').toLowerCase()} data-ville={a.ville ?? ''}
-            data-lat={a.localisation?.lat} data-lng={a.localisation?.lng}>
+          <li class="activity-card flex" data-nom={(a.nom ?? '').toLowerCase()} data-ville={a.itinerant ? undefined : a.ville ?? undefined}
+            data-lat={a.itinerant ? undefined : a.localisation?.lat} data-lng={a.itinerant ? undefined : a.localisation?.lng}>
             <CarteActivite a={a} class="w-full" />
           </li>
         ))}
@@ -140,7 +154,9 @@ const pluriel = resultats.length > 1 ? 's' : '';
       const badge = card.querySelector<HTMLElement>('.distance');
       if (badge && Number.isFinite(km)) { badge.textContent = `· ${formatDistance(km)}`; badge.classList.remove('hidden'); }
     }
-    cards.sort((a, b) => Number(a.dataset.distanceKm) - Number(b.dataset.distanceKm)).forEach((c) => grid?.appendChild(c));
+    // Tri stable : à distance égale (ou inconnue), l'ordre d'ancienneté est conservé.
+    const km = (c: HTMLElement) => Number(c.dataset.distanceKm);
+    cards.sort((a, b) => (km(a) === km(b) ? 0 : km(a) - km(b))).forEach((c) => grid?.appendChild(c));
     btnGeo.disabled = false;
     btnGeo.setAttribute('aria-pressed', 'true');
     btnGeo.classList.add('text-corail');

@@ -3,7 +3,7 @@
 import Icone from './Icone.astro';
 import { urlForImage } from '../lib/sanity.js';
 import { getFallbackImg } from '../lib/activites';
-import { nomLisible, photoPrincipale } from '../lib/contenu';
+import { lieuAffiche, nomLisible, photoPrincipale } from '../lib/contenu';
 
 interface Props { a: any; lieu?: string; class?: string; }
 const { a, lieu, class: cls = '' } = Astro.props;
@@ -13,9 +13,9 @@ const img = photo
   ? urlForImage(photo)?.width(720).height(480).fit('crop').auto('format').url()
   : getFallbackImg(a.nom ?? '', a.type ?? '').replace('w=480&h=200', 'w=720&h=480');
 const categorie = a.soustitre || a.branche?.titre?.trim();
-const ou = lieu ?? (a.ville ? nomLisible(a.ville) : a.territoire?.titre);
+const ou = lieu ?? lieuAffiche(a) ?? a.territoires?.[0]?.titre;
 ---
-<a href={`/loisirs66/${a.slug}`} class={`group flex flex-col overflow-hidden rounded-3xl border border-trait bg-white shadow-sm transition-shadow hover:shadow-md ${cls}`}>
+<a href={`/loisirs66/${a.slug}`} data-lat={a.itinerant ? undefined : a.localisation?.lat} data-lng={a.itinerant ? undefined : a.localisation?.lng} class={`group flex flex-col overflow-hidden rounded-3xl border border-trait bg-white shadow-sm transition-shadow hover:shadow-md ${cls}`}>
   <div class="relative aspect-[3/2] overflow-hidden border-b-4 border-corail bg-sable">
     <img src={img} alt="" loading="lazy" decoding="async" width="720" height="480" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
     {categorie && <span class="absolute bottom-4 left-4 max-w-[85%] truncate rounded-full bg-corail px-4 py-1.5 text-xs font-medium text-encre">{categorie}</span>}

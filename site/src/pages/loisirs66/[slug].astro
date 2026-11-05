@@ -7,22 +7,27 @@ import { sanityClient, urlForImage } from '../../lib/sanity.js';
 import { getFallbackImg } from '../../lib/activites';
 import {
   FICHE_QUERY, PROCHES_GEO_QUERY, PROCHES_TERRITOIRE_QUERY, SIMILAIRES_QUERY,
-  labelPublic, lignesAdresse, nomLisible, periodesOuverture, photoPrincipale, urlItineraire,
+  groupesEffectifs, lignesAdresse, nomLisible, periodesOuverture, photoPrincipale, publicsAffiches, urlItineraire,
 } from '../../lib/contenu';
 
 const { slug } = Astro.params;
 const a: any = sanityClient ? await sanityClient.fetch(FICHE_QUERY, { slug }).catch(() => null) : null;
 if (!a) return Astro.redirect('/');
 
-const geo = a.localisation?.lat != null ? a.localisation : null;
+const itinerant = !!a.itinerant;
+// Itinérant : la position est un point de référence interne, jamais présenté comme lieu d'accueil.
+const geo = !itinerant && a.localisation?.lat != null ? a.localisation : null;
 const [similaires, proches]: any[][] = sanityClient
   ? await Promise.all([
       a.brancheId ? sanityClient.fetch(SIMILAIRES_QUERY, { branche: a.brancheId, id: a._id }).catch(() => []) : [],
-      geo
-        ? sanityClient.fetch(PROCHES_GEO_QUERY, { id: a._id, point: { _type: 'geopoint', lat: geo.lat, lng: geo.lng } }).catch(() => [])
-        : a.territoireId
-          ? sanityClient.fetch(PROCHES_TERRITOIRE_QUERY, { id: a._id, territoire: a.territoireId, branche: a.brancheId ?? '' }).catch(() => [])
-          : [],
+      // « À proximité » masqué pour un itinérant (cahier des charges §6.11).
+      itinerant
+        ? []
+        : geo
+          ? sanityClient.fetch(PROCHES_GEO_QUERY, { id: a._id, point: { _type: 'geopoint', lat: geo.lat, lng: geo.lng } }).catch(() => [])
+          : a.territoireIds?.length
+            ? sanityClient.fetch(PROCHES_TERRITOIRE_QUERY, { id: a._id, territoires: a.territoireIds, branche: a.brancheId ?? '' }).catch(() => [])
+            : [],
     ])
   : [[], []];
 // « À proximité » ne répète pas les fiches déjà proposées dans « À découvrir aussi ».
@@ -30,19 +35,19 @@ const dejaVus = new Set(similaires.map((s) => s._id));
 const autour = proches.filter((p) => !dejaVus.has(p._id));
 
 const nom = nomLisible(a.nom);
-const ville = a.ville ? nomLisible(a.ville) : null;
+const ville = !itinerant && a.ville ? nomLisible(a.ville) : null;
 const categorie = a.soustitre || a.branche?.titre?.trim();
 
 const photos = [photoPrincipale(a), ...(a.galerie ?? [])].filter((p) => p?.asset);
 const photoUrl = (p: any, w: number, h: number) => urlForImage(p)?.width(w).height(h).fit('crop').auto('format').url();
 const repli = getFallbackImg(a.nom ?? '', a.type ?? '').replace('w=480&h=200', 'w=1200&h=1000');
 
-const publics: string[] = (a.publics ?? []).map(labelPublic);
-const groupes: string[] = a.groupes ?? [];
+const publics = publicsAffiches(a.publics);
+const groupes = groupesEffectifs(a);
 const periodes = periodesOuverture(a.periodes, a.saison);
 const iconeSaison: Record<string, string> = { Printemps: 'printemps', 'Été': 'ete', Automne: 'automne', Hiver: 'hiver' };
-const adresse = lignesAdresse(a.adresse);
-const itineraire = urlItineraire({ adresse: a.adresse, ville: a.ville, lat: geo?.lat, lng: geo?.lng });
+const adresse = itinerant ? [] : lignesAdresse(a.adresse);
+const itineraire = itinerant ? null : urlItineraire({ adresse: a.adresse, ville: a.ville, lat: geo?.lat, lng: geo?.lng });
 const ctaTitre = a.ctaTitre || 'Envie d’y aller ?';
 const ctaTexte = a.ctaTexte || 'Préparez votre visite directement auprès du professionnel.';
 ---
@@ -85,8 +90,14 @@ const ctaTexte = a.ctaTexte || 'Préparez votre visite directement auprès du pr
 
     <div class="mx-auto max-w-3xl px-6 sm:px-8">
       <!-- Lieu + site -->
-      {(ville || a.siteWeb) && (
+      {(ville || itinerant || a.siteWeb) && (
         <div class="border-b border-trait py-8">
+          {itinerant && (
+            <p class="flex items-center gap-3 text-lg">
+              <Icone nom="carte" class="h-6 w-6 text-bleu" />
+              <span class="font-medium">Activité itinérante</span>
+            </p>
+          )}
           {ville && (
             <p class="flex items-center gap-3 text-lg">
               <Icone nom="carte" class="h-6 w-6 text-bleu" />
@@ -142,9 +153,9 @@ const ctaTexte = a.ctaTexte || 'Préparez votre visite directement auprès du pr
         </section>
       )}
 
-      {(periodes.length > 0 || a.horaires || a.tarifs) && (
+      {periodes.length > 0 && (
         <section class="py-10">
-          {periodes.length > 0 && (
+          {(
             <>
               <h2 class="text-xl font-semibold">Périodes d’ouverture</h2>
               <ul class="mt-5 flex gap-6 text-bleu">
@@ -154,16 +165,22 @@ const ctaTexte = a.ctaTexte || 'Préparez votre visite directement auprès du pr
               </ul>
             </>
           )}
-          {(a.horaires || a.tarifs) && (
-            <dl class="mt-8 grid gap-4 sm:grid-cols-2">
-              {a.horaires && <div><dt class="text-sm text-gris">Horaires</dt><dd class="mt-1 font-medium">{a.horaires}</dd></div>}
-              {a.tarifs && <div><dt class="text-sm text-gris">Tarifs</dt><dd class="mt-1 font-medium">{a.tarifs}</dd></div>}
-            </dl>
-          )}
         </section>
       )}
 
-      {(adresse.length > 0 || itineraire) && (
+      {itinerant && (
+        <section class="rounded-3xl bg-sable p-8 sm:p-10">
+          <p class="surtitre">Informations pratiques</p>
+          <div class="mt-6 flex gap-5">
+            <Icone nom="repere" class="mt-1 h-6 w-6 shrink-0 text-bleu" />
+            <p class="text-lg leading-relaxed">
+              <span class="font-medium">Activité itinérante</span>{a.secteur && <> – secteur d’intervention : <span class="text-gris">{a.secteur}</span></>}
+            </p>
+          </div>
+        </section>
+      )}
+
+      {!itinerant && (adresse.length > 0 || itineraire) && (
         <section class="rounded-3xl bg-sable p-8 sm:p-10">
           <p class="surtitre">Informations pratiques</p>
           <div class="mt-6 flex gap-5">
@@ -224,6 +241,19 @@ const ctaTexte = a.ctaTexte || 'Préparez votre visite directement auprès du pr
     if (url) lien.href = url;
     lien.addEventListener('click', () => { const u = derniereRecherche(); if (u) lien.href = u; });
   });
+
+  // « À découvrir aussi » : classé par distance au visiteur s'il a partagé sa position (sinon ancienneté, côté serveur).
+  try {
+    const pos = JSON.parse(sessionStorage.getItem('position') ?? 'null');
+    const piste = document.querySelector<HTMLElement>('#decouvrir-aussi [data-piste]');
+    if (pos && piste) {
+      const km = (el: HTMLElement) => (el.dataset.lat ? haversine(pos.lat, pos.lng, Number(el.dataset.lat), Number(el.dataset.lng)) : Infinity);
+      [...piste.children as HTMLCollectionOf<HTMLElement>]
+        .map((el) => [el, km(el)] as const)
+        .sort((x, y) => (x[1] === y[1] ? 0 : x[1] - y[1]))
+        .forEach(([el]) => piste.appendChild(el));
+    }
+  } catch {}
 
   // Distance : seulement si le visiteur a déjà partagé sa position (bouton « autour de moi »).
   const el = document.getElementById('distance');

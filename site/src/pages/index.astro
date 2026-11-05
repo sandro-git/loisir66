@@ -3,12 +3,14 @@ import Site from '../layouts/Site.astro';
 import Icone from '../components/Icone.astro';
 import Carrousel from '../components/Carrousel.astro';
 import { sanityClient, urlForImage } from '../lib/sanity.js';
-import { ACCUEIL_QUERY, RACCOURCIS, urlRecherche } from '../lib/contenu';
+import { ACCUEIL_QUERY, RACCOURCIS, classerParMembres, urlRecherche } from '../lib/contenu';
 
 const data: any = sanityClient ? await sanityClient.fetch(ACCUEIL_QUERY).catch(() => null) : null;
 const accueil = data?.accueil ?? {};
-const univers: any[] = data?.univers ?? [];
-const territoires: any[] = data?.territoires ?? [];
+// Ordre automatique : nombre de membres décroissant (cahier des charges §2).
+const membres: any[] = data?.membres ?? [];
+const univers = classerParMembres(data?.univers ?? [], membres, 'univers');
+const territoires = classerParMembres(data?.territoires ?? [], membres, 'territoire');
 
 const img = (source: any, w: number, h: number) =>
   source?.asset ? urlForImage(source)?.width(w).height(h).fit('crop').auto('format').url() : null;
@@ -79,15 +81,15 @@ const heroSousTitre = accueil.heroSousTitre || 'directement auprès des professi
       <p class="surtitre">À chacun ses envies</p>
       <h2 class="titre-section mt-3">Nos univers</h2>
       <p class="mt-4 max-w-sm text-lg leading-relaxed text-gris">Des idées pour s’évader, partager et profiter du 66.</p>
-      <ul class="mt-10 grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
+      <ul class="mt-10 grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3 xl:grid-cols-6 xl:gap-4">
         {univers.map((u) => (
           <li>
             <a href={urlRecherche({ univers: u.slug })} class="group flex h-full flex-col overflow-hidden rounded-3xl border border-trait bg-white shadow-sm transition-shadow hover:shadow-md">
               <div class="aspect-[6/5] overflow-hidden border-b-4 border-corail bg-sable">
                 {img(u.image, 640, 540) && <img src={img(u.image, 640, 540)} alt="" loading="lazy" decoding="async" width="640" height="540" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />}
               </div>
-              <div class="flex flex-1 items-start justify-between gap-2 p-4 pb-8 sm:gap-3 sm:p-6 sm:pb-10">
-                <h3 class="min-w-0 text-[15px] font-semibold leading-snug [hyphens:none] sm:text-xl">{u.titre}</h3>
+              <div class="flex flex-1 items-start justify-between gap-2 p-4 pb-8 sm:gap-3 sm:p-6 sm:pb-10 xl:p-4 xl:pb-6">
+                <h3 class="min-w-0 text-[15px] font-semibold leading-snug [hyphens:none] sm:text-xl xl:text-base">{u.titre}</h3>
                 <Icone nom="externe" class="mt-0.5 h-5 w-5 shrink-0 text-bleu" />
               </div>
             </a>

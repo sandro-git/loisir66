@@ -1,57 +1,134 @@
 // Requêtes Sanity et logique pure partagées par l'accueil, la recherche et les fiches adhérent.
 // Les fonctions pures sont testées dans tests/unit/contenu.test.ts.
+// Référentiels de tags : voir aussi studio/schemas/listes.ts (valeurs stockées dans Sanity).
 
-/** Champs nécessaires pour afficher une carte d'activité. */
+/** Branche « métier » : pour un itinérant, la branche de son activité ; sinon la branche officielle. */
+const BRANCHE_EFFECTIVE = `select(itinerant == true && defined(brancheActivite) => brancheActivite, branche)`;
+/** Territoires : nouveau champ multiple, sinon l'ancien champ unique. */
+const TERRITOIRES = `select(count(territoires) > 0 => territoires, defined(territoire) => [territoire], [])`;
+/** Tri sans géolocalisation : ancienneté d'adhésion (plus ancien d'abord), puis nom. */
+export const ORDRE_ANCIENNETE = `order(coalesce(dateAdhesion, "9999-12-31") asc, lower(nom) asc)`;
+
+/** Champs nécessaires pour afficher une carte d'activité et la filtrer. */
 export const CARTE_FIELDS = `
-  _id, nom, "slug": slug.current, soustitre, type, publics, groupes, saison, periodes,
-  description, ville, image, localisation,
-  "branche": branche->{ "slug": slug.current, titre, image },
-  "territoire": territoire->{ "slug": slug.current, titre }
+  _id, nom, "slug": slug.current, soustitre, type, publics, groupes, experiences, cadres, saison, periodes,
+  description, activites, ville, image, localisation, itinerant, secteur, dateAdhesion,
+  "branche": ${BRANCHE_EFFECTIVE}->{ "slug": slug.current, titre, image },
+  "universSecondaire": universSecondaire->slug.current,
+  "territoires": ${TERRITOIRES}[]->{ "slug": slug.current, titre }
 `;
 
 export const ACCUEIL_QUERY = `{
   "accueil": *[_id == "accueil"][0],
-  "univers": *[_type == "univers"] | order(ordre asc, titre asc) {
+  "univers": *[_type == "univers"] | order(titre asc) {
     titre, "slug": slug.current, image, "branches": branches[]->slug.current
   },
-  "territoires": *[_type == "territoire"] | order(ordre asc, titre asc) {
-    titre, "slug": slug.current, image
+  "territoires": *[_type == "territoire"] | order(titre asc) { titre, "slug": slug.current, image },
+  "membres": *[_type == "adherent"] {
+    "branche": ${BRANCHE_EFFECTIVE}->{ "slug": slug.current },
+    "universSecondaire": universSecondaire->slug.current,
+    "territoires": ${TERRITOIRES}[]->{ "slug": slug.current }
   }
 }`;
 
 export const FICHE_QUERY = `*[_type == "adherent" && slug.current == $slug][0]{
   ${CARTE_FIELDS},
-  surtitre, accroche, activites, galerie, adresse, horaires, tarifs, siteWeb, ctaTitre, ctaTexte,
-  "brancheId": branche._ref, "territoireId": territoire._ref
+  surtitre, accroche, galerie, adresse, siteWeb, ctaTitre, ctaTexte,
+  "brancheId": ${BRANCHE_EFFECTIVE}._ref,
+  "territoireIds": ${TERRITOIRES}[]._ref
 }`;
 
-/** Même branche (« À découvrir aussi »). */
-export const SIMILAIRES_QUERY = `*[_type == "adherent" && branche._ref == $branche && _id != $id] | order(nom asc)[0...8]{ ${CARTE_FIELDS} }`;
+/** « À découvrir aussi » : même branche (métier), classés par ancienneté (le navigateur retrie par distance). */
+export const SIMILAIRES_QUERY = `*[_type == "adherent" && _id != $id && ${BRANCHE_EFFECTIVE}._ref == $branche]
+  | ${ORDRE_ANCIENNETE}[0...8]{ ${CARTE_FIELDS} }`;
 
-/** « À proximité » : par distance si la fiche a une position, sinon même territoire. */
-export const PROCHES_GEO_QUERY = `*[_type == "adherent" && _id != $id && defined(localisation)]
+/** « À proximité » : distance depuis le lieu du professionnel consulté (itinérants exclus), sinon mêmes territoires. */
+export const PROCHES_GEO_QUERY = `*[_type == "adherent" && _id != $id && itinerant != true && defined(localisation)]
   | order(geo::distance(localisation, $point) asc)[0...8]{ ${CARTE_FIELDS} }`;
-export const PROCHES_TERRITOIRE_QUERY = `*[_type == "adherent" && _id != $id && territoire._ref == $territoire && branche._ref != $branche]
-  | order(nom asc)[0...8]{ ${CARTE_FIELDS} }`;
+export const PROCHES_TERRITOIRE_QUERY = `*[_type == "adherent" && _id != $id && itinerant != true && references($territoires)
+  && ${BRANCHE_EFFECTIVE}._ref != $branche] | ${ORDRE_ANCIENNETE}[0...8]{ ${CARTE_FIELDS} }`;
 
-/** Libellés affichés pour les valeurs du champ « publics ». */
-const PUBLIC_LABELS: Record<string, string> = {
+// ——— Référentiels (cahier des charges §6–8, décisions du 05/11/2026)
+
+/** Publics : valeur stockée → libellé affiché. « Tous » et « Team building » sont d'anciennes valeurs. */
+export const PUBLICS: Record<string, string> = {
   Famille: 'En famille',
   Enfants: 'Avec des enfants',
+  Ados: 'Avec des ados',
   Amis: 'Entre amis',
-  Adultes: 'Adultes',
-  Tous: 'Tous publics',
-  'Team building': 'Team building',
+  Couple: 'En couple',
+  Adultes: 'Entre adultes',
+  Solo: 'En solo',
+  Chiens: 'Chiens bienvenus',
 };
+const PUBLICS_ANCIENS: Record<string, string> = { Tous: 'Tous publics' };
 
 export function labelPublic(valeur: string): string {
-  return PUBLIC_LABELS[valeur] ?? valeur;
+  return PUBLICS[valeur] ?? PUBLICS_ANCIENS[valeur] ?? valeur;
+}
+
+/** Publics affichés sur la fiche (« Team building », ancienne valeur, est un groupe). */
+export function publicsAffiches(publics?: string[] | null): string[] {
+  return (publics ?? []).filter((p) => p !== 'Team building').map(labelPublic);
+}
+
+export const GROUPES = [
+  'Scolaires', 'Centres de loisirs', 'Colonies de vacances', 'Associations', 'Clubs sportifs',
+  'Entreprises & équipes', 'Team building', 'CSE & sorties du personnel', 'Anniversaires', 'EVG & EVJF',
+  'Groupes étudiants', 'Groupes seniors', 'Groupes touristiques', 'Groupes privés',
+];
+
+/** Groupes accueillis (l'ancienne valeur « Team building » du champ publics compte comme groupe). */
+export function groupesEffectifs(a: { groupes?: string[] | null; publics?: string[] | null }): string[] {
+  const g = [...(a.groupes ?? [])];
+  if ((a.publics ?? []).includes('Team building') && !g.includes('Team building')) g.push('Team building');
+  return g;
+}
+
+export const EXPERIENCES = ['Sensations', 'Sport', 'Détente', 'Découverte', 'Challenge', 'Rencontre avec les animaux'];
+
+/** Branches considérées « Sensations » tant que le champ Expérience n'est pas rempli. */
+export const BRANCHES_SENSATIONS = [
+  'sports-mecaniques-66',
+  'glisse-66',
+  'glisse-montagne-66',
+  'parcours-aventure-66',
+  'activites-a-corde-et-pleine-nature-66',
+  'activites-nautiques-watergames-66',
+];
+const BRANCHES_ANIMAUX = ['parcs-animaliers-aquariums-66', 'fermes-66', 'balades-equestres-66'];
+
+export function experiencesEffectives(a: { experiences?: string[] | null; branche?: { slug?: string } | null }): string[] {
+  if (a.experiences?.length) return a.experiences;
+  const b = a.branche?.slug ?? '';
+  const deduites: string[] = [];
+  if (BRANCHES_SENSATIONS.includes(b)) deduites.push('Sensations');
+  if (BRANCHES_ANIMAUX.includes(b)) deduites.push('Rencontre avec les animaux');
+  return deduites;
+}
+
+export const CADRES = ['En intérieur', 'En plein air', 'Côté terre', 'Côté mer', 'En montagne'];
+const CADRE_PAR_TERRITOIRE: Record<string, string> = {
+  'cote-rocheuse': 'Côté mer',
+  'cote-sableuse': 'Côté mer',
+  'arriere-pays': 'Côté terre',
+  montagne: 'En montagne',
+};
+
+/** Cadre : le champ « cadres », sinon déduit de l'ancien champ type (Indoor/Outdoor) et des territoires. */
+export function cadresEffectifs(a: { cadres?: string[] | null; type?: string | null; territoires?: { slug?: string }[] | null }): string[] {
+  if (a.cadres?.length) return a.cadres;
+  const c = new Set<string>();
+  if (a.type === 'Indoor') c.add('En intérieur');
+  if (a.type === 'Outdoor') c.add('En plein air');
+  for (const t of a.territoires ?? []) if (t?.slug && CADRE_PAR_TERRITOIRE[t.slug]) c.add(CADRE_PAR_TERRITOIRE[t.slug]);
+  return CADRES.filter((x) => c.has(x));
 }
 
 export const SAISONS = ['Printemps', 'Été', 'Automne', 'Hiver'] as const;
 export type Saison = (typeof SAISONS)[number];
 
-/** Périodes d'ouverture : le nouveau champ « periodes », sinon déduites de l'ancien champ « saison ». */
+/** Saisons d'ouverture : le champ « periodes », sinon déduites de l'ancien champ « saison ». */
 export function periodesOuverture(periodes?: string[] | null, saison?: string | null): Saison[] {
   const valides = (periodes ?? []).filter((p): p is Saison => (SAISONS as readonly string[]).includes(p));
   if (valides.length) return SAISONS.filter((s) => valides.includes(s));
@@ -61,27 +138,62 @@ export function periodesOuverture(periodes?: string[] | null, saison?: string | 
   return [];
 }
 
-/** Branches considérées comme « Sensations » (puce de la page d'accueil). */
-export const BRANCHES_SENSATIONS = [
-  'sports-mecaniques-66',
-  'glisse-66',
-  'glisse-montagne-66',
-  'parcours-aventure-66',
-  'activites-a-corde-et-pleine-nature-66',
-  'activites-nautiques-watergames-66',
-];
-
-/** Raccourcis de la page d'accueil (bandeau corail) → paramètres de /recherche. */
-export const RACCOURCIS = [
+/** Tags de la page d'accueil (bandeau corail) : les 4 prioritaires d'abord (§8), « Ouvert en ce moment » supprimé. */
+export const RACCOURCIS: { label: string; params: Record<string, string> }[] = [
+  { label: 'Tous', params: {} },
   { label: 'En famille', params: { public: 'famille' } },
-  { label: 'Sensations', params: { ambiance: 'sensations' } },
-  { label: 'En intérieur', params: { type: 'indoor' } },
-  { label: 'Groupes & entreprises', params: { groupe: 'groupes & entreprises' } },
-] as const;
+  { label: 'Sensations', params: { experience: 'sensations' } },
+  { label: 'En intérieur', params: { cadre: 'en intérieur' } },
+  { label: 'Groupes & entreprises', params: { groupe: 'tous' } },
+  { label: 'Avec des enfants', params: { public: 'enfants' } },
+  { label: 'En plein air', params: { cadre: 'en plein air' } },
+  { label: 'Aventure', params: { univers: 'sport-aventure' } },
+  { label: 'Côté terre', params: { cadre: 'côté terre' } },
+  { label: 'Côté mer', params: { cadre: 'côté mer' } },
+  { label: 'En montagne', params: { cadre: 'en montagne' } },
+  { label: 'Chiens bienvenus', params: { public: 'chiens' } },
+];
 
 export function urlRecherche(params: Record<string, string>): string {
   const qs = new URLSearchParams(params).toString();
   return qs ? `/recherche?${qs}` : '/recherche';
+}
+
+/** Lieu affiché sous le nom : la ville, ou « Itinérant – secteur » (on n'invente pas de ville). */
+export function lieuAffiche(a: { itinerant?: boolean | null; secteur?: string | null; ville?: string | null }): string | null {
+  if (a.itinerant) return a.secteur ? `Itinérant – ${a.secteur}` : 'Itinérant';
+  return a.ville ? nomLisible(a.ville) : null;
+}
+
+/** Tri sans géolocalisation : date d'adhésion croissante (sans date en dernier), puis nom. */
+export function trierParAnciennete<T extends { dateAdhesion?: string | null; nom?: string | null }>(xs: T[]): T[] {
+  return [...xs].sort((a, b) =>
+    (a.dateAdhesion ?? '9999-12-31').localeCompare(b.dateAdhesion ?? '9999-12-31') ||
+    (a.nom ?? '').localeCompare(b.nom ?? '', 'fr', { sensitivity: 'base' }),
+  );
+}
+
+type Membre = { branche?: { slug?: string } | null; universSecondaire?: string | null; territoires?: { slug?: string }[] | null };
+
+/** Un adhérent appartient à un univers par sa branche (univers principal) ou par son univers secondaire. */
+export function dansUnivers(a: Membre, univers: { slug: string; branches?: string[] | null }): boolean {
+  return (univers.branches ?? []).includes(a.branche?.slug ?? '') || a.universSecondaire === univers.slug;
+}
+
+/** Univers et territoires classés par nombre de membres décroissant (puis titre). */
+export function classerParMembres<U extends { slug: string; titre: string; branches?: string[] | null }>(
+  liste: U[],
+  membres: Membre[],
+  genre: 'univers' | 'territoire',
+): (U & { membres: number })[] {
+  return liste
+    .map((u) => ({
+      ...u,
+      membres: membres.filter((m) =>
+        genre === 'univers' ? dansUnivers(m, u) : (m.territoires ?? []).some((t) => t?.slug === u.slug),
+      ).length,
+    }))
+    .sort((a, b) => b.membres - a.membres || a.titre.localeCompare(b.titre, 'fr'));
 }
 
 /** « À 25 km » / « À moins d'1 km ». */
@@ -133,44 +245,66 @@ export type CritereRecherche = {
   univers?: string;
   territoire?: string;
   public?: string;
-  type?: string;
+  cadre?: string;
   groupe?: string;
-  ambiance?: string;
+  experience?: string;
+  saison?: string;
 };
 
-export const CRITERES: (keyof CritereRecherche)[] = ['q', 'univers', 'territoire', 'public', 'type', 'groupe', 'ambiance'];
+export const CRITERES: (keyof CritereRecherche)[] = ['q', 'univers', 'territoire', 'public', 'cadre', 'groupe', 'experience', 'saison'];
 
-/** Lit les critères depuis l'URL (valeurs vides ignorées). */
+/** Lit les critères depuis l'URL (valeurs vides ignorées ; anciens paramètres type= et ambiance= convertis). */
 export function lireCriteres(params: URLSearchParams): CritereRecherche {
   const c: CritereRecherche = {};
   for (const k of CRITERES) {
     const v = params.get(k)?.trim();
     if (v) c[k] = v;
   }
+  const type = params.get('type')?.trim().toLowerCase();
+  if (!c.cadre && type === 'indoor') c.cadre = 'en intérieur';
+  if (!c.cadre && type === 'outdoor') c.cadre = 'en plein air';
+  const ambiance = params.get('ambiance')?.trim();
+  if (!c.experience && ambiance) c.experience = ambiance;
   return c;
 }
 
-const sansAccents = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+export const sansAccents = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+const egal = (a?: string | null, b?: string) => sansAccents(a ?? '') === sansAccents(b ?? '');
 
-/** Filtre les activités selon les critères de /recherche. `univers` : slug → slugs de branches. */
+/** Texte sur lequel porte la recherche par mots-clés. */
+export function texteRecherche(a: Record<string, any>): string {
+  return sansAccents(
+    [
+      a.nom, a.soustitre, a.description, a.ville, a.secteur, a.branche?.titre,
+      ...(a.activites ?? []), ...publicsAffiches(a.publics), ...groupesEffectifs(a),
+      ...experiencesEffectives(a), ...cadresEffectifs(a), ...(a.territoires ?? []).map((t: any) => t?.titre),
+    ].filter(Boolean).join(' '),
+  );
+}
+
+/** Filtre les activités selon les critères de /recherche. */
 export function filtrerActivites<T extends Record<string, any>>(
   activites: T[],
   c: CritereRecherche,
-  univers: Record<string, string[]> = {},
+  univers: { slug: string; branches?: string[] | null }[] = [],
 ): T[] {
   const mots = c.q ? sansAccents(c.q).split(/\s+/).filter(Boolean) : [];
-  const egal = (a?: string | null, b?: string) => sansAccents(a ?? '') === sansAccents(b ?? '');
+  const u = c.univers ? univers.find((x) => x.slug === c.univers) : undefined;
   return activites.filter((a) => {
     if (mots.length) {
-      const texte = sansAccents([a.nom, a.soustitre, a.description, a.ville, a.branche?.titre].filter(Boolean).join(' '));
+      const texte = texteRecherche(a);
       if (!mots.every((m) => texte.includes(m))) return false;
     }
-    if (c.univers && !(univers[c.univers] ?? []).includes(a.branche?.slug)) return false;
-    if (c.territoire && a.territoire?.slug !== c.territoire) return false;
-    if (c.type && !egal(a.type, c.type)) return false;
+    if (c.univers && (!u || !dansUnivers(a, u))) return false;
+    if (c.territoire && !(a.territoires ?? []).some((t: any) => t?.slug === c.territoire)) return false;
+    if (c.cadre && !cadresEffectifs(a).some((x) => egal(x, c.cadre))) return false;
     if (c.public && !(a.publics ?? []).some((p: string) => egal(p, c.public))) return false;
-    if (c.groupe && !(a.groupes ?? []).some((g: string) => egal(g, c.groupe))) return false;
-    if (c.ambiance === 'sensations' && !BRANCHES_SENSATIONS.includes(a.branche?.slug)) return false;
+    if (c.groupe) {
+      const g = groupesEffectifs(a);
+      if (c.groupe === 'tous' ? g.length === 0 : !g.some((x) => egal(x, c.groupe))) return false;
+    }
+    if (c.experience && !experiencesEffectives(a).some((x) => egal(x, c.experience))) return false;
+    if (c.saison && !periodesOuverture(a.periodes, a.saison).some((x) => egal(x, c.saison))) return false;
     return true;
   });
 }
@@ -179,7 +313,7 @@ export function filtrerActivites<T extends Record<string, any>>(
 export function basculerCritere(c: CritereRecherche, cle: keyof CritereRecherche, valeur: string): string {
   const suivant: Record<string, string> = {};
   for (const [k, v] of Object.entries(c)) if (v) suivant[k] = v;
-  if (suivant[cle] === valeur) delete suivant[cle];
+  if (suivant[cle] !== undefined && egal(suivant[cle], valeur)) delete suivant[cle];
   else suivant[cle] = valeur;
   return urlRecherche(suivant);
 }

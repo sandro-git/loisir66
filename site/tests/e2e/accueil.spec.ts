@@ -11,7 +11,8 @@ test.describe('accueil', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Découvrez les loisirs du 66');
     await expect(page.getByRole('search').getByPlaceholder('Quelle activité vous tente ?')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Nos univers' })).toBeVisible();
-    expect(await page.locator('#univers li a').count()).toBeGreaterThanOrEqual(4);
+    expect(await page.locator('#univers li a').count()).toBe(6);
+    await expect(page.locator('#univers')).toContainText('Animaux & ferme');
     await expect(page.getByRole('heading', { name: 'Nos territoires' })).toBeVisible();
     expect(await page.locator('#territoires li a').count()).toBeGreaterThanOrEqual(2);
   });
@@ -31,7 +32,7 @@ test.describe('accueil', () => {
 
   test('les raccourcis mènent à la recherche', async ({ page }) => {
     await page.getByRole('navigation', { name: 'Raccourcis' }).getByRole('link', { name: 'En intérieur' }).click();
-    await expect(page).toHaveURL(/\/recherche\?type=indoor$/);
+    await expect(page).toHaveURL(/\/recherche\?cadre=en\+int%C3%A9rieur$/);
   });
 
   test('le menu mobile s’ouvre et se ferme', async ({ page, isMobile }) => {
@@ -75,23 +76,23 @@ test.describe('recherche', () => {
   test('un filtre s’active puis se retire, « effacer » réinitialise', async ({ page }) => {
     await page.goto('/recherche');
     const total = await cartes(page).count();
-    await page.locator('a.chip[data-filter="type"][data-value="indoor"]').click();
-    await expect(page).toHaveURL(/type=indoor/);
+    await page.locator('a.chip[data-filter="cadre"][data-value="en intérieur"]').click();
+    await expect(page).toHaveURL(/cadre=en\+int%C3%A9rieur/);
     const n = await cartes(page).count();
     expect(n).toBeGreaterThan(0);
     expect(n).toBeLessThan(total);
 
-    await page.locator('a.chip.active[data-filter="type"]').click();
+    await page.locator('a.chip.active[data-filter="cadre"]').click();
     await expect(page).toHaveURL(/\/recherche$/);
     await expect(cartes(page)).toHaveCount(total);
 
-    await page.goto('/recherche?type=outdoor&q=parc');
+    await page.goto('/recherche?cadre=en+plein+air&q=parc');
     await page.locator('#btn-clear-filters').click();
     await expect(page).toHaveURL(/\/recherche$/);
   });
 
   test('une carte mène à la fiche, « Retour aux résultats » ramène à la recherche', async ({ page }) => {
-    await page.goto('/recherche?type=indoor');
+    await page.goto('/recherche?cadre=en+int%C3%A9rieur');
     const lien = cartes(page).first().locator('a');
     const href = await lien.getAttribute('href');
     expect(href).toMatch(/^\/loisirs66\/[\w-]+$/);
@@ -100,7 +101,12 @@ test.describe('recherche', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await page.waitForLoadState('load');
     await page.locator('#retour-bas').click();
-    await expect(page).toHaveURL(/\/recherche\?type=indoor$/);
+    await expect(page).toHaveURL(/\/recherche\?cadre=en\+int%C3%A9rieur$/);
+  });
+
+  test('les anciens liens type=indoor restent valides', async ({ page }) => {
+    await page.goto('/recherche?type=indoor');
+    await expect(page.locator('a.chip.active[data-filter="cadre"][data-value="en intérieur"]')).toHaveCount(1);
   });
 });
 

@@ -1,6 +1,7 @@
 import { defineType, defineField, defineArrayMember } from 'sanity'
 
-// Les « univers » de la page d'accueil regroupent une ou plusieurs branches.
+// Les « univers » de la page d'accueil regroupent une ou plusieurs branches (univers principal d'un adhérent).
+// Ordre d'affichage automatique : nombre de membres décroissant (cahier des charges §2).
 export const universType = defineType({
   name: 'univers',
   title: 'Univers (accueil)',
@@ -21,8 +22,6 @@ export const universType = defineType({
       type: 'array',
       of: [defineArrayMember({ type: 'reference', to: [{ type: 'branche' }] })],
     }),
-    defineField({ name: 'ordre', title: 'Ordre d’affichage', type: 'number' }),
   ],
-  orderings: [{ title: 'Ordre', name: 'ordre', by: [{ field: 'ordre', direction: 'asc' }] }],
   preview: { select: { title: 'titre', media: 'image' } },
 })
