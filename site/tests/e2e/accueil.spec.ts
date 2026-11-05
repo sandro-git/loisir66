@@ -110,6 +110,40 @@ test.describe('recherche', () => {
   });
 });
 
+test.describe('recherche (suite)', () => {
+  test('propose d’autres univers après la liste, sans l’univers actif', async ({ page }) => {
+    await page.goto('/recherche?univers=animaux-ferme');
+    const bloc = page.getByRole('navigation', { name: 'Les autres univers' });
+    await expect(bloc).toBeVisible();
+    expect(await bloc.getByRole('link').count()).toBeGreaterThan(0);
+    await expect(bloc.getByRole('link', { name: /Animaux & ferme/ })).toHaveCount(0);
+  });
+
+  test('propose d’autres envies après une liste filtrée par tag', async ({ page }) => {
+    await page.goto('/recherche?cadre=en+int%C3%A9rieur');
+    await expect(page.getByRole('navigation', { name: 'D’autres envies' })).toBeVisible();
+  });
+
+  test('la barre de recherche réapparaît en haut au défilement', async ({ page }) => {
+    await page.goto('/recherche');
+    const barre = page.locator('#barre-fixe');
+    await expect(barre).toHaveClass(/-translate-y-full/);
+    await page.locator('#cards-grid .activity-card').nth(6).scrollIntoViewIfNeeded();
+    await expect(barre).not.toHaveClass(/-translate-y-full/);
+  });
+
+  test('un synonyme trouve les activités du tag correspondant', async ({ page }) => {
+    await page.goto('/recherche?q=interieur');
+    const n = await page.locator('#cards-grid .activity-card').count();
+    expect(n).toBeGreaterThan(0);
+  });
+
+  test('le bandeau de l’accueil propose la saison en cours', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('navigation', { name: 'Raccourcis' }).getByRole('link', { name: /^À faire / })).toHaveCount(1);
+  });
+});
+
 test.describe('fiche adhérent', () => {
   test('affiche nom, catégorie, lien vers le professionnel et suggestions', async ({ page }) => {
     await page.goto('/loisirs66/parc-animalier-de-casteil');

@@ -14,6 +14,7 @@ export const structure: StructureResolver = (S) =>
       S.documentTypeListItem('univers').title('Univers (accueil)'),
       S.documentTypeListItem('territoire').title('Territoires'),
       S.documentTypeListItem('branche').title('Branches'),
+      S.documentTypeListItem('page').title('Pages (À propos, mentions légales…)'),
       S.divider(),
       S.listItem()
         .title('Campagnes promo (privé)')

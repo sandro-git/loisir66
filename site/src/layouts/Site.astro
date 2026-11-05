@@ -3,10 +3,10 @@
 import Layout from './Layout.astro';
 import Entete from '../components/Entete.astro';
 import PiedDePage from '../components/PiedDePage.astro';
-interface Props { title?: string; description?: string; }
-const { title, description } = Astro.props;
+interface Props { title?: string; description?: string; image?: string | null; jsonLd?: any; }
+const { title, description, image, jsonLd } = Astro.props;
 ---
-<Layout title={title} description={description} bodyClass="bg-white text-encre">
+<Layout title={title} description={description} image={image} jsonLd={jsonLd} bodyClass="bg-white text-encre">
   <slot name="head" slot="head" />
   <Entete />
   <main>

@@ -3,7 +3,8 @@ import Site from '../layouts/Site.astro';
 import Icone from '../components/Icone.astro';
 import Carrousel from '../components/Carrousel.astro';
 import { sanityClient, urlForImage } from '../lib/sanity.js';
-import { ACCUEIL_QUERY, RACCOURCIS, classerParMembres, urlRecherche } from '../lib/contenu';
+import { ACCUEIL_QUERY, classerParMembres, tagsAccueil, urlRecherche } from '../lib/contenu';
+import { jsonLdAccueil } from '../lib/seo';
 
 const data: any = sanityClient ? await sanityClient.fetch(ACCUEIL_QUERY).catch(() => null) : null;
 const accueil = data?.accueil ?? {};
@@ -17,11 +18,16 @@ const img = (source: any, w: number, h: number) =>
 
 const slides = (accueil.slides ?? []).filter((s: any) => s?.asset);
 const instagramPhotos = (accueil.instagramPhotos ?? []).filter((s: any) => s?.asset);
+const donneesStructurees = jsonLdAccueil(Astro.url.origin, {
+  email: accueil.email || 'contact.aplpo@gmail.com',
+  telephone: accueil.telephone,
+  reseaux: [accueil.instagram, accueil.facebook, accueil.linkedin].filter(Boolean),
+});
 const heroTitre = accueil.heroTitre || 'Découvrez les loisirs du 66,';
 const heroSousTitre = accueil.heroSousTitre || 'directement auprès des professionnels d’ici.';
 ---
 
-<Site title="Loisirs 66 — Découvrez les loisirs des Pyrénées-Orientales" description="Activités et loisirs dans les Pyrénées-Orientales, directement auprès des professionnels adhérents de l’APLPO.">
+<Site image={slides[0] ? img(slides[0], 1200, 630) : null} jsonLd={donneesStructurees} title="Loisirs 66 — Découvrez les loisirs des Pyrénées-Orientales" description="Activités et loisirs dans les Pyrénées-Orientales, directement auprès des professionnels adhérents de l’APLPO.">
   <!-- Bandeau principal -->
   <section class="mx-auto max-w-6xl px-6 sm:px-8" aria-label="À la une">
     <div class="relative overflow-hidden rounded-t-[2rem] border-b-[12px] border-corail bg-bleu-fonce" data-hero>
@@ -69,7 +75,7 @@ const heroSousTitre = accueil.heroSousTitre || 'directement auprès des professi
   <!-- Raccourcis -->
   <nav class="mx-auto mt-8 max-w-6xl sm:px-8" aria-label="Raccourcis">
     <ul class="defilant scroll-px-6 bg-corail px-6 py-5 sm:rounded-2xl sm:px-8 lg:justify-center">
-      {RACCOURCIS.map((r) => (
+      {tagsAccueil().map((r) => (
         <li><a href={urlRecherche(r.params)} class="block whitespace-nowrap rounded-full border border-encre/30 px-5 py-3 text-[15px] font-medium text-encre transition-colors hover:bg-white/30">{r.label}</a></li>
       ))}
     </ul>
@@ -176,7 +182,7 @@ const heroSousTitre = accueil.heroSousTitre || 'directement auprès des professi
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        try { sessionStorage.setItem('position', JSON.stringify({ lat: latitude, lng: longitude })); } catch {}
+        try { sessionStorage.setItem('position', JSON.stringify({ lat: latitude, lng: longitude })); sessionStorage.setItem('tri-distance', '1'); } catch {}
         location.href = '/recherche?autour=1';
       },
       () => { location.href = '/recherche'; },

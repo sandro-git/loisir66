@@ -73,3 +73,33 @@ test.describe('formulaire codes promo (/api/promo)', () => {
     await expect(page.locator('#promos-message')).toBeVisible();
   });
 });
+
+test.describe('référencement', () => {
+  test('robots.txt et sitemap.xml', async ({ request, baseURL }) => {
+    const robots = await (await request.get('/robots.txt')).text();
+    if (/--.*\.netlify\.app/.test(baseURL ?? '')) expect(robots).toContain('Disallow: /');
+    else expect(robots).toContain('Sitemap:');
+    const sitemap = await request.get('/sitemap.xml');
+    expect(sitemap.headers()['content-type']).toContain('xml');
+    expect(await sitemap.text()).toMatch(/<loc>[^<]+\/loisirs66\/[\w-]+<\/loc>/);
+  });
+
+  test('fiche : canonique, Open Graph et données structurées', async ({ page }) => {
+    await page.goto('/loisirs66/parc-animalier-de-casteil');
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/loisirs66\/parc-animalier-de-casteil$/);
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /Casteil/i);
+    const ld = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent()) ?? '{}');
+    expect(ld['@type']).toContain('TouristAttraction');
+  });
+
+  test('les résultats filtrés ne sont pas indexés, la liste complète oui', async ({ page }) => {
+    await page.goto('/recherche?cadre=en+int%C3%A9rieur');
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+    await page.goto('/recherche');
+    await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+  });
+
+  test('une page de contenu inexistante renvoie 404', async ({ request }) => {
+    expect((await request.get('/page-qui-n-existe-pas')).status()).toBe(404);
+  });
+});

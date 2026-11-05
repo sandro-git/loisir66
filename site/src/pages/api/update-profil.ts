@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { createClient } from '@supabase/supabase-js';
 import { sanityWriter } from '../../lib/sanity-write.js';
+import { patchProfil } from '../../lib/profil';
 
 export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   // Vérification auth
@@ -27,42 +28,25 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
     return redirect('/mon-profil?erreur=no-doc');
   }
 
-  // Lecture du formulaire
   const form = await request.formData();
+  const { set, unset, erreurs } = patchProfil(form);
+  if (erreurs.length) return redirect(`/mon-profil?erreur=${encodeURIComponent(erreurs.join(' '))}`);
 
-  const publics = form.getAll('publics') as string[];
-
-  const patch: Record<string, any> = {
-    nom:        form.get('nom'),
-    soustitre:  form.get('soustitre'),
-    type:       form.get('type'),
-    publics,
-    saison:     form.get('saison'),
-    description: form.get('description'),
-    ville:      form.get('ville'),
-    adresse:    form.get('adresse'),
-    horaires:   form.get('horaires'),
-    tarifs:     form.get('tarifs'),
-    siteWeb:    form.get('siteWeb') || undefined,
-  };
-
-  // Upload image si fournie
+  // Photo principale si fournie
   const imageFile = form.get('image') as File | null;
   if (imageFile && imageFile.size > 0) {
+    if (!imageFile.type.startsWith('image/') || imageFile.size > 10 * 1024 * 1024) {
+      return redirect(`/mon-profil?erreur=${encodeURIComponent('La photo doit être une image de 10 Mo maximum.')}`);
+    }
     const buffer = Buffer.from(await imageFile.arrayBuffer());
-    const asset  = await sanityWriter.assets.upload('image', buffer, {
-      filename:    imageFile.name,
+    const asset = await sanityWriter.assets.upload('image', buffer, {
+      filename: imageFile.name,
       contentType: imageFile.type,
     });
-    patch.image = { _type: 'image', asset: { _type: 'reference', _ref: asset._id } };
+    set.image = { _type: 'image', asset: { _type: 'reference', _ref: asset._id } };
   }
 
-  // Supprime les champs vides pour ne pas écraser avec null
-  Object.keys(patch).forEach(k => {
-    if (patch[k] === '' || patch[k] === null) delete patch[k];
-  });
-
-  await sanityWriter.patch(adherentRow.sanity_doc_id.trim()).set(patch).commit();
+  await sanityWriter.patch(adherentRow.sanity_doc_id.trim()).set(set).unset(unset).commit();
 
   return redirect('/mon-profil?success=1');
 };

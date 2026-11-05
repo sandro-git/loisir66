@@ -271,6 +271,7 @@ export function lireCriteres(params: URLSearchParams): CritereRecherche {
 export const sansAccents = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 const egal = (a?: string | null, b?: string) => sansAccents(a ?? '') === sansAccents(b ?? '');
 
+
 /** Texte sur lequel porte la recherche par mots-clés. */
 export function texteRecherche(a: Record<string, any>): string {
   return sansAccents(
@@ -282,18 +283,78 @@ export function texteRecherche(a: Record<string, any>): string {
   );
 }
 
+/**
+ * Synonymes de recherche (cahier des charges §8) : expression saisie → libellés de tags équivalents.
+ * Référentiel à enrichir au fil des retours ; comparaisons sans accents ni casse.
+ */
+export const SYNONYMES: [string[], string[]][] = [
+  [['chien', 'chiens', 'chien accepte', 'chiens acceptes', 'activite avec chien', 'dog friendly', 'dog'], ['chiens bienvenus']],
+  [['seminaire', 'seminaires', 'comite d entreprise', 'comite d\'entreprise', 'ce', 'cse', 'entreprise', 'entreprises', 'sortie du personnel'], ['entreprises & equipes', 'cse & sorties du personnel', 'team building']],
+  [['cohesion d equipe', 'cohesion d\'equipe', 'cohesion', 'teambuilding', 'team building'], ['team building']],
+  [['bde', 'integration etudiante', 'sortie etudiante', 'etudiant', 'etudiants', 'etudiante', 'etudiantes'], ['groupes etudiants']],
+  [['evg', 'evjf', 'enterrement de vie de garcon', 'enterrement de vie de jeune fille', 'enterrement de vie'], ['evg & evjf']],
+  [['anniversaire', 'anniversaires', 'anniv'], ['anniversaires']],
+  [['ecole', 'scolaire', 'classe', 'sortie scolaire'], ['scolaires']],
+  [['ados', 'ado', 'adolescent', 'adolescents'], ['avec des ados']],
+  [['indoor', 'interieur', 'couvert', 'quand il pleut', 'pluie'], ['en interieur']],
+  [['outdoor', 'exterieur', 'plein air'], ['en plein air']],
+  [['mer', 'plage', 'bord de mer'], ['cote mer']],
+  [['montagne', 'pyrenees'], ['en montagne']],
+  [['spa', 'thalasso', 'bain', 'bains', 'detente', 'relaxation'], ['detente', 'thermoludisme', 'bien-etre']],
+];
+
+/**
+ * Découpe une recherche en termes ; chaque terme est une liste de variantes dont une seule doit apparaître.
+ * Les expressions synonymes (même en plusieurs mots) sont reconnues en premier.
+ */
+export function analyserRecherche(q: string): string[][] {
+  let reste = ` ${sansAccents(q).replace(/[’']/g, "'").replace(/\s+/g, ' ').trim()} `;
+  const termes: string[][] = [];
+  const expressions = SYNONYMES.flatMap(([formes, cibles]) => formes.map((f) => [sansAccents(f), cibles] as const))
+    .sort((a, b) => b[0].length - a[0].length);
+  for (const [forme, cibles] of expressions) {
+    const motif = ` ${forme} `;
+    if (reste.includes(motif)) {
+      termes.push([forme, ...cibles]);
+      reste = reste.split(motif).join(' ');
+    }
+  }
+  for (const mot of reste.split(' ').filter(Boolean)) termes.push([mot]);
+  return termes;
+}
+
+/** Saison en cours (pour les suggestions automatiques « À faire cet automne »). */
+export function saisonCourante(d = new Date()): Saison {
+  const m = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', month: 'numeric' }).format(d));
+  if (m >= 3 && m <= 5) return 'Printemps';
+  if (m >= 6 && m <= 8) return 'Été';
+  if (m >= 9 && m <= 11) return 'Automne';
+  return 'Hiver';
+}
+
+export function libelleSaison(s: Saison): string {
+  return { Printemps: 'À faire au printemps', 'Été': 'À faire cet été', Automne: 'À faire cet automne', Hiver: 'À faire cet hiver' }[s];
+}
+
+/** Tags du bandeau : « Tous », puis la suggestion saisonnière du moment, puis les tags fixes. */
+export function tagsAccueil(d = new Date()): { label: string; params: Record<string, string> }[] {
+  const saison = saisonCourante(d);
+  const [tous, ...autres] = RACCOURCIS;
+  return [tous, { label: libelleSaison(saison), params: { saison: saison.toLowerCase() } }, ...autres];
+}
+
 /** Filtre les activités selon les critères de /recherche. */
 export function filtrerActivites<T extends Record<string, any>>(
   activites: T[],
   c: CritereRecherche,
   univers: { slug: string; branches?: string[] | null }[] = [],
 ): T[] {
-  const mots = c.q ? sansAccents(c.q).split(/\s+/).filter(Boolean) : [];
+  const termes = c.q ? analyserRecherche(c.q) : [];
   const u = c.univers ? univers.find((x) => x.slug === c.univers) : undefined;
   return activites.filter((a) => {
-    if (mots.length) {
+    if (termes.length) {
       const texte = texteRecherche(a);
-      if (!mots.every((m) => texte.includes(m))) return false;
+      if (!termes.every((variantes) => variantes.some((v) => texte.includes(v)))) return false;
     }
     if (c.univers && (!u || !dansUnivers(a, u))) return false;
     if (c.territoire && !(a.territoires ?? []).some((t: any) => t?.slug === c.territoire)) return false;

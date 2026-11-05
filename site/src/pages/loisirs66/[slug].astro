@@ -9,6 +9,7 @@ import {
   FICHE_QUERY, PROCHES_GEO_QUERY, PROCHES_TERRITOIRE_QUERY, SIMILAIRES_QUERY,
   groupesEffectifs, lignesAdresse, nomLisible, periodesOuverture, photoPrincipale, publicsAffiches, urlItineraire,
 } from '../../lib/contenu';
+import { jsonLdFiche } from '../../lib/seo';
 
 const { slug } = Astro.params;
 const a: any = sanityClient ? await sanityClient.fetch(FICHE_QUERY, { slug }).catch(() => null) : null;
@@ -48,11 +49,13 @@ const periodes = periodesOuverture(a.periodes, a.saison);
 const iconeSaison: Record<string, string> = { Printemps: 'printemps', 'Été': 'ete', Automne: 'automne', Hiver: 'hiver' };
 const adresse = itinerant ? [] : lignesAdresse(a.adresse);
 const itineraire = itinerant ? null : urlItineraire({ adresse: a.adresse, ville: a.ville, lat: geo?.lat, lng: geo?.lng });
+const imagePartage = photos[0] ? photoUrl(photos[0], 1200, 630) : null;
+const donneesStructurees = jsonLdFiche(a, { url: new URL(Astro.url.pathname, Astro.url.origin).href, image: imagePartage });
 const ctaTitre = a.ctaTitre || 'Envie d’y aller ?';
 const ctaTexte = a.ctaTexte || 'Préparez votre visite directement auprès du professionnel.';
 ---
 
-<Site title={`${nom} — Loisirs 66`} description={a.accroche || a.description?.slice(0, 155) || `${nom}, adhérent APLPO dans les Pyrénées-Orientales.`}>
+<Site image={imagePartage} jsonLd={donneesStructurees} title={`${nom} — Loisirs 66`} description={a.accroche || a.description?.slice(0, 155) || `${nom}, adhérent APLPO dans les Pyrénées-Orientales.`}>
   <article>
     <!-- Photo(s) -->
     <div class="mx-auto max-w-6xl px-6 sm:px-8">

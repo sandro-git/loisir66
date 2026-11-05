@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  analyserRecherche,
   basculerCritere,
+  libelleSaison,
+  saisonCourante,
+  tagsAccueil,
   cadresEffectifs,
   classerParMembres,
   experiencesEffectives,
@@ -171,5 +175,27 @@ describe('recherche', () => {
     expect(basculerCritere({ cadre: 'en intérieur' }, 'cadre', 'en plein air')).toBe('/recherche?cadre=en+plein+air');
     expect(basculerCritere({ cadre: 'En intérieur' }, 'cadre', 'en intérieur')).toBe('/recherche');
     expect(urlRecherche({ groupe: 'tous' })).toBe('/recherche?groupe=tous');
+  });
+});
+
+describe('synonymes et saisons', () => {
+  it('reconnaît les expressions synonymes', () => {
+    expect(analyserRecherche('séminaire')[0]).toContain('team building');
+    expect(analyserRecherche('Dog friendly plage')).toEqual([
+      ['dog friendly', 'chiens bienvenus'],
+      ['plage', 'cote mer'],
+    ]);
+    expect(analyserRecherche('karting')).toEqual([['karting']]);
+  });
+  it('trouve une activité via un synonyme de tag', () => {
+    const a = [{ nom: 'Base', groupes: ['Team building'] }, { nom: 'Autre' }];
+    expect(filtrerActivites(a, { q: 'cohésion d’équipe' }).map((x) => x.nom)).toEqual(['Base']);
+    expect(filtrerActivites(a, { q: 'CSE' }).map((x) => x.nom)).toEqual(['Base']);
+  });
+  it('propose la saison en cours dans le bandeau', () => {
+    expect(saisonCourante(new Date('2026-11-05T12:00:00Z'))).toBe('Automne');
+    expect(saisonCourante(new Date('2026-02-01T12:00:00Z'))).toBe('Hiver');
+    expect(libelleSaison('Été')).toBe('À faire cet été');
+    expect(tagsAccueil(new Date('2026-07-01T12:00:00Z'))[1]).toEqual({ label: 'À faire cet été', params: { saison: 'été' } });
   });
 });
